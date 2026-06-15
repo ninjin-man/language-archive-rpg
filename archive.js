@@ -16,10 +16,12 @@ function computeLayout(){
   const z=arcZoom||1;
   const cw=CELL_W*z,ch=CELL_H*z,rg=ROW_GAP*z,hh=HEADER_H*z;
   const cols=Math.max(3,Math.floor((W-PAD_X*2)/cw));
+  // Top offset must clear the floating カテゴリ/zoom buttons (mobile: arc-wrap has padding-top)
+  const topOfs=PAD_Y+(parseFloat(getComputedStyle(wrap).paddingTop)||0);
 
   if(S.filt==='all'){
     const cats=[...new Set(WD.map(w=>w.archive))];
-    let y=PAD_Y;
+    let y=topOfs;
     cats.forEach(cat=>{
       const ws=WD.filter(w=>w.archive===cat);
       y+=hh;
@@ -37,7 +39,7 @@ function computeLayout(){
     AL.__totalH=y+PAD_Y;
   } else {
     const words=getWords();
-    let y=PAD_Y+hh;
+    let y=topOfs+hh;
     words.forEach((w,i)=>{
       const col=i%cols, row=Math.floor(i/cols);
       AL[w.word]={x:PAD_X+col*cw+cw/2,y:y+row*ch+ch/2,cat:w.archive};
@@ -66,18 +68,19 @@ function renderEdges(){
   const drawn=new Set();
   let mk='';
 
-  // Category section headers + divider lines
+  // Category section headers + divider lines (font/line scale with zoom — 改修D)
   if(S.filt==='all'){
+    const z=arcZoom||1;
     const cats=[...new Set(words.map(w=>w.archive))];
-    const seen=new Set();
     cats.forEach(cat=>{
       const cw=words.filter(w=>w.archive===cat);if(!cw.length)return;
       const p=AL[cw[0].word];if(!p)return;
       const col=cc(cat);
       const kn=cw.filter(w=>gst(w.word)!=='unknown').length;
-      mk+=`<line x1="${p.headerX}" y1="${p.headerY+10}" x2="${W-PAD_X}" y2="${p.headerY+10}" stroke="${col}" stroke-width="1" opacity="0.25"/>`;
-      mk+=`<text x="${p.headerX}" y="${p.headerY+2}" fill="${col}" font-size="10" font-weight="700" letter-spacing="2">${CICON[cat]||''} ${CJP[cat]||cat.toUpperCase()}</text>`;
-      mk+=`<text x="${W-PAD_X}" y="${p.headerY+2}" fill="${col}" font-size="9" font-weight="700" text-anchor="end" opacity="0.7">${kn}/${cw.length}</text>`;
+      const lineY=p.headerY+10*z, textY=p.headerY+2*z;
+      mk+=`<line x1="${p.headerX}" y1="${lineY}" x2="${W-PAD_X}" y2="${lineY}" stroke="${col}" stroke-width="1" opacity="0.25"/>`;
+      mk+=`<text x="${p.headerX}" y="${textY}" fill="${col}" font-size="${10*z}" font-weight="700" letter-spacing="2">${CICON[cat]||''} ${CJP[cat]||cat.toUpperCase()}</text>`;
+      mk+=`<text x="${W-PAD_X}" y="${textY}" fill="${col}" font-size="${9*z}" font-weight="700" text-anchor="end" opacity="0.7">${kn}/${cw.length}</text>`;
     });
   }
 
@@ -98,24 +101,26 @@ function renderEdges(){
       const sameCat=WM[t]?.archive===w.archive;
       // Only draw same-category edges (cross-category lines clutter the grid view)
       if(!sameCat)return;
-      let stroke='#12162a',op=0.15,width=.8,dash='';
+      const z2=arcZoom||1;
+      let stroke='#12162a',op=0.18,width=1.2*z2,dash='';
       if(vis){
-        if(tp==='s'){stroke=cc(w.archive);op=.6;width=1.3}
-        else if(tp==='o'){stroke='#5a1228';op=.45;width=1}
-        else{stroke=cc(w.archive)+'55';op=.45;width=1}
-      } else{dash='1.5 4';op=.08}
+        if(tp==='s'){stroke=cc(w.archive);op=.85;width=2.2*z2}
+        else if(tp==='o'){stroke='#e0506a';op=.6;width=1.8*z2}
+        else{stroke=cc(w.archive);op=.55;width=1.8*z2}
+      } else{dash=`${1.5*z2} ${4*z2}`;op=.12;width=1*z2}
       const mx=(src.x+tgt.x)/2,my=(src.y+tgt.y)/2;
       const dx=tgt.x-src.x,dy=tgt.y-src.y;
       const len=Math.sqrt(dx*dx+dy*dy)||1;
       const curve=Math.min(len*.2,14);
       const cpx=mx+(-dy/len)*curve;
       const cpy=my+(dx/len)*curve;
-      mk+=`<path d="M${src.x},${src.y} Q${cpx},${cpy} ${tgt.x},${tgt.y}" stroke="${stroke}" stroke-width="${width}" opacity="${op}" fill="none" stroke-dasharray="${dash}"/>`;
+      mk+=`<path d="M${src.x},${src.y} Q${cpx},${cpy} ${tgt.x},${tgt.y}" stroke="${stroke}" stroke-width="${width}" opacity="${op}" fill="none" stroke-dasharray="${dash}" stroke-linecap="round"/>`;
     });
   });
 
   svg.innerHTML=mk;
 }
+
 
 /* ════ ZOOM (改修C) — recompute layout at scaled cell size, keeps scroll height correct ════ */
 let arcZoom=1;
