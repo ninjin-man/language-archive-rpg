@@ -29,6 +29,7 @@
   <button class="nb" onclick="go('cft')"><span class="ni">⚗️</span>クラフト</button>
   <button class="nb" onclick="go('skill')"><span class="ni">🔥</span>Skill Forge</button>
   <button class="nb" onclick="go('job')"><span class="ni">🧙</span>職業</button>
+  <button class="nb" onclick="openArcV2()"><span class="ni">🗺️</span>アーカイブ(新)</button>
 </div>
 <div id="qbar">
   <span class="qb-lbl">目標</span>
@@ -240,6 +241,16 @@
 </div>
 
 <div id="toasts"></div>
+<!-- ARCHIVE V2 (Phase8: archive_v2プロトタイプ表示用モーダル, 既存システム非依存) -->
+<div id="arcv2-ov" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.85);z-index:9999">
+  <div style="position:absolute;top:0;left:0;right:0;bottom:0;display:flex;flex-direction:column">
+    <div style="display:flex;justify-content:flex-end;padding:6px">
+      <button onclick="closeArcV2()" style="padding:6px 12px">✕ 閉じる</button>
+    </div>
+    <iframe id="arcv2-frame" src="" style="flex:1;width:100%;border:0"></iframe>
+  </div>
+</div>
+
 <script src="data.js"></script>
 <script src="save.js"></script>
 <script src="archive.js"></script>
@@ -249,5 +260,18 @@
 <script src="skills.js"></script>
 <script src="jobs.js"></script>
 <script src="ui.js"></script>
+<script>
+  // archive_v2プロトタイプ表示用(既存JSとは独立、ArchiveData等の名前空間に影響なし)
+  function openArcV2() {
+    var frame = document.getElementById('arcv2-frame');
+    if (!frame.src) {
+      frame.src = 'archive_v2/archive-prototype.html';
+    }
+    document.getElementById('arcv2-ov').style.display = 'block';
+  }
+  function closeArcV2() {
+    document.getElementById('arcv2-ov').style.display = 'none';
+  }
+</script>
 </body>
 </html>
