@@ -1,0 +1,66 @@
+{
+  "schema_version": "1.0",
+  "total": 6,
+  "jobs": [
+    {
+      "id": "novice",
+      "name": "Novice",
+      "icon": "🌱",
+      "tier": 0,
+      "requiredWords": [],
+      "desc": "Every legend starts somewhere.",
+      "bonus": "Start of your journey",
+      "always": true
+    },
+    {
+      "id": "warrior",
+      "name": "Warrior",
+      "icon": "⚔️",
+      "tier": 1,
+      "requiredWords": ["Sword", "Shield", "Battle", "Attack", "Defend", "Strong"],
+      "desc": "Masters of combat and steel.",
+      "bonus": "ATK +20%",
+      "always": false
+    },
+    {
+      "id": "fire_mage",
+      "name": "Fire Mage",
+      "icon": "🔥",
+      "tier": 1,
+      "requiredWords": ["Fire", "Flame", "Magic", "Spell", "Burn", "Mana"],
+      "desc": "Wields arcane flames with deadly precision.",
+      "bonus": "Fire DMG +30%",
+      "always": false
+    },
+    {
+      "id": "merchant",
+      "name": "Merchant",
+      "icon": "💰",
+      "tier": 1,
+      "requiredWords": ["Buy", "Sell", "Trade", "Gold", "Market"],
+      "desc": "Masters of commerce and profit.",
+      "bonus": "Sell Value +20%",
+      "always": false
+    },
+    {
+      "id": "explorer",
+      "name": "Explorer",
+      "icon": "🧭",
+      "tier": 1,
+      "requiredWords": ["Explore", "Discover", "Map", "Quest", "Search"],
+      "desc": "Fearless seekers of the unknown.",
+      "bonus": "Explore Rate +20%",
+      "always": false
+    },
+    {
+      "id": "engineer",
+      "name": "Engineer",
+      "icon": "⚙️",
+      "tier": 1,
+      "requiredWords": ["Build", "Craft", "Mine", "Forge", "Wood", "Iron"],
+      "desc": "Builders and inventors of remarkable devices.",
+      "bonus": "Craft Speed +25%",
+      "always": false
+    }
+  ]
+}

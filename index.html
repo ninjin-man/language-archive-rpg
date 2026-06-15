@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0">
+<title>Language Archive RPG</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="root">
+<div id="hdr">
+  <div class="logo">Archive<em>RPG</em></div>
+  <div class="hdr-r">
+    <div class="ew">
+      <div class="eb"><div class="ef" id="ef"></div></div>
+      <div class="el" id="el">0/100 EXP</div>
+    </div>
+    <div class="hs">📖 <b id="hw">0</b> 語</div>
+    <div class="hs">⭐ <b id="hx">0</b></div>
+    <div class="hs">💠 <b id="hap">0</b> AP</div>
+    <div class="hs">🪙 <b id="hgold">0</b></div>
+    <div class="hs">💪 <b id="hstat">0</b></div>
+    <div class="hjob" id="hj">🌱 Novice</div>
+  </div>
+</div>
+<div id="nav">
+  <button class="nb on" onclick="go('arc')"><span class="ni">📚</span>アーカイブ</button>
+  <button class="nb" onclick="go('exp')"><span class="ni">⚔️</span>探索</button>
+  <button class="nb" onclick="go('cft')"><span class="ni">⚗️</span>クラフト</button>
+  <button class="nb" onclick="go('skill')"><span class="ni">🔥</span>Skill Forge</button>
+  <button class="nb" onclick="go('job')"><span class="ni">🧙</span>職業</button>
+</div>
+<div id="qbar">
+  <span class="qb-lbl">目標</span>
+  <div id="qb-list" style="display:flex;gap:8px"></div>
+</div>
+<div id="content">
+
+<!-- ARCHIVE -->
+<div id="s-arc" class="scr on">
+  <div id="arc-sb">
+    <div class="sb-title">カテゴリ</div>
+    <div class="cat-list" id="cat-list"></div>
+    <div class="sb-foot">
+      <div class="rr2"><span>修復率</span><span class="rv" id="rpct">0%</span></div>
+      <div class="rb"><div class="rf" id="rfil" style="width:0%"></div></div>
+      <div class="cs" id="cs"></div>
+    </div>
+  </div>
+  <div id="arc-wrap">
+    <svg id="arc-svg"></svg>
+    <div id="arc-nodes"></div>
+    <div class="arc-zoom">
+      <button onclick="zoomArc(0.15)">+</button>
+      <button onclick="zoomArc(-0.15)">−</button>
+      <button onclick="zoomArc(0)" title="リセット">⊙</button>
+    </div>
+    <div class="arc-leg">
+      <div style="font-size:7px;letter-spacing:.1em;text-transform:uppercase;color:var(--t2);margin-bottom:2px">習熟度</div>
+      <div class="lr"><div class="ld" style="border-color:#1e2440;background:#1e2440"></div><span>未発見</span></div>
+      <div class="lr"><div class="ld" style="border-color:var(--cyan);background:rgba(77,200,224,.35)"></div><span>発見済み</span></div>
+      <div class="lr"><div class="ld" style="border-color:var(--m2);background:rgba(30,80,144,.5)"></div><span>学習中</span></div>
+      <div class="lr"><div class="ld" style="border-color:var(--gold);background:rgba(200,168,75,.35)"></div><span>習熟済み</span></div>
+      <div class="lr"><div class="ld" style="border-color:var(--amber);background:rgba(224,152,42,.45)"></div><span>マスター</span></div>
+    </div>
+  </div>
+  <div id="arc-det">
+    <div class="det-hdr">
+      <div class="det-lbl">単語詳細</div>
+      <div id="det-top"><div style="text-align:center;padding:14px 0;color:var(--t2);font-size:10px">ノードを選択</div></div>
+    </div>
+    <div class="det-body" id="det-body"></div>
+    <div class="det-ftr" id="det-ftr" style="display:none">
+      <button class="btn btn-g" id="det-qb">📝 Quiz</button>
+      <button class="btn btn-d" onclick="closeDet()">×</button>
+    </div>
+  </div>
+</div>
+
+<!-- EXPLORE -->
+<div id="s-exp" class="scr"><div class="sec-h">ダンジョン</div><div class="dr-grid" id="dungeon-records"></div><div class="dg" id="dg"></div><div class="sec-h" style="margin-top:14px">レリック</div><div class="relic-grid" id="relic-grid"></div></div>
+
+<!-- CRAFT -->
+<div id="s-cft" class="scr" style="overflow:auto;padding:12px">
+  <div class="ctabs">
+    <button class="ctab on" id="t-wc" onclick="setCT('word')">✨ 単語クラフト</button>
+    <button class="ctab" id="t-ic" onclick="setCT('item')">⚒️ アイテムクラフト</button>
+  </div>
+  <div id="cft-body"></div>
+</div>
+
+<!-- SKILL FORGE (Phase4/9) -->
+<div id="s-skill" class="scr" style="overflow:auto;padding:12px">
+  <div class="ctabs">
+    <button class="ctab on" id="t-skf" onclick="setSkillTab('forge')">🔥 Skill Forge</button>
+    <button class="ctab" id="t-skg" onclick="setSkillTab('grammar')">📖 Grammar Archive</button>
+  </div>
+  <div id="skill-body"></div>
+</div>
+
+<!-- JOBS -->
+<div id="s-job" class="scr">
+  <div style="padding:12px">
+    <div class="sec-h">プレイヤー強化</div>
+    <div id="player-stats"></div>
+    <div class="sec-h" style="margin-top:14px">職業</div>
+    <div class="jg" id="jg"></div>
+  </div>
+</div>
+</div>
+</div>
+
+<!-- TOOLTIP -->
+<div id="arc-tip"></div>
+
+<!-- LEGENDARY FLASH -->
+<div id="legendary-flash"></div>
+
+<!-- DISCOVERY CARD -->
+<div id="disc-ov">
+  <div class="dcard" id="dcard">
+    <canvas id="dparticles" width="250" height="190"></canvas>
+    <div class="dn" id="dn">✦ 新しい単語を発見! ✦</div>
+    <div class="dr" id="dr"></div>
+    <div class="dw" id="dw"></div>
+    <div class="djp" id="djp"></div>
+    <div class="dc3" id="dc3"></div>
+    <div class="d-rewards" id="d-rewards"></div>
+    <div class="d-statgain" id="d-statgain"></div>
+    <div class="d-unlocks" id="d-unlocks"></div>
+  </div>
+</div>
+
+<!-- CRAFT ANIM -->
+<div id="craft-anim">
+  <div class="cab">
+    <div class="cai"><div class="caw" id="ca-a"></div><div class="cap">+</div><div class="caw" id="ca-b"></div></div>
+    <div class="caar">▼</div>
+    <div class="car" id="ca-r"></div>
+    <div class="cajp" id="ca-jp"></div>
+  </div>
+</div>
+
+<!-- DUNGEON MAP -->
+<div class="dmov" id="dmov">
+  <div class="dmbox">
+    <div class="dmhdr">
+      <span class="dmt" id="dm-title">ダンジョン</span>
+      <span class="dmf-info" id="dm-floor">B1F</span>
+      <button class="dmc" onclick="closeDmap()">✕</button>
+    </div>
+    <div class="dmbody">
+      <div class="dm-grid-area">
+        <div class="dm-grid-frame">
+          <div class="dm-grid" id="dm-grid"></div>
+        </div>
+        <div class="dm-floor-bar"><div class="dm-floor-fill" id="dm-floor-fill" style="width:10%"></div></div>
+        <div class="dm-floor-label" id="dm-floor-label">深度 1F / 10F</div>
+      </div>
+      <div class="dm-lower">
+        <div class="dm-controls">
+          <div class="dm-dir">
+            <div></div>
+            <button class="dmb" onclick="dmv('up')">▲</button>
+            <div></div>
+            <button class="dmb" onclick="dmv('left')">◀</button>
+            <button class="dmb act" id="dm-act" onclick="dma()">⚔</button>
+            <button class="dmb" onclick="dmv('right')">▶</button>
+            <div></div>
+            <button class="dmb" onclick="dmv('down')">▼</button>
+            <div></div>
+          </div>
+          <div class="dm-cdr-label">移動 / 行動</div>
+        </div>
+        <div class="dm-console">
+          <div class="dm-msg" id="dm-msg">—</div>
+          <div class="dm-stats-row">
+            <div class="dm-stat-card"><div class="dm-stat-label">フロア</div><div class="dm-stat-val" id="dm-f">B1F</div></div>
+            <div class="dm-stat-card"><div class="dm-stat-label">歩数</div><div class="dm-stat-val" id="dm-s">0</div></div>
+            <div class="dm-stat-card"><div class="dm-stat-label">単語発見</div><div class="dm-stat-val" id="dm-w">0</div></div>
+          </div>
+          <div class="dm-log" id="dm-log"></div>
+          <div class="dm-legend">
+            <span class="dm-li"><span class="dm-li-dot" style="background:var(--cyan)"></span>プレイヤー</span>
+            <span class="dm-li"><span class="dm-li-dot" style="background:var(--gold)"></span>宝箱</span>
+            <span class="dm-li"><span class="dm-li-dot" style="background:var(--violet)"></span>イベント</span>
+            <span class="dm-li"><span class="dm-li-dot" style="background:var(--rose)"></span>敵</span>
+            <span class="dm-li"><span class="dm-li-dot" style="background:var(--green)"></span>出口</span>
+            <span class="dm-li"><span class="dm-li-dot" style="background:var(--amber)"></span>↓ 階段</span>
+            <span class="dm-li"><span class="dm-li-dot" style="background:var(--cyan)"></span>↑ 階段</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- RANDOM EVENT CHOICE (探索ループ改善) -->
+<div id="event-ov" class="evov">
+  <div class="evbox">
+    <div class="evtitle">📜 古い石碑</div>
+    <div class="evdesc">石碑には古い文字が刻まれている。どうする？</div>
+    <div class="evchoices">
+      <button class="evbtn" onclick="resolveEventChoice('read')">📖 読む</button>
+      <button class="evbtn" onclick="resolveEventChoice('destroy')">💥 破壊する</button>
+      <button class="evbtn" onclick="resolveEventChoice('take')">📦 持ち帰る</button>
+    </div>
+  </div>
+</div>
+
+<!-- BATTLE (Phase8: 戦闘システム) -->
+<div id="battle-ov" class="evov">
+  <div class="evbox bf-box">
+    <div class="evtitle">⚔️ Battle</div>
+    <div id="battle-body"></div>
+  </div>
+</div>
+
+<!-- QUIZ -->
+<div id="quiz-ov">
+  <div class="qbox">
+    <div class="qhdr">
+      <span class="qtit" id="q-tit">クイズ</span>
+      <div class="qdots" id="q-dots"></div>
+      <span class="qpr" id="q-pr">1/5</span>
+    </div>
+    <div class="qbody">
+      <div class="qw" id="q-w"></div>
+      <div class="qp" id="q-p"></div>
+      <div class="qch" id="q-ch"></div>
+      <div class="qr" id="q-r"></div>
+    </div>
+    <div class="qftr">
+      <button class="btn btn-d" style="flex:0 0 auto;padding:7px 11px" onclick="closeQ()">やめる</button>
+      <button class="btn btn-g" id="q-nx" onclick="nextQ()" disabled>次へ →</button>
+    </div>
+  </div>
+</div>
+
+<div id="toasts"></div>
+<script src="data.js"></script>
+<script src="save.js"></script>
+<script src="archive.js"></script>
+<script src="dungeon.js"></script>
+<script src="battle.js"></script>
+<script src="craft.js"></script>
+<script src="skills.js"></script>
+<script src="jobs.js"></script>
+<script src="ui.js"></script>
+</body>
+</html>

@@ -1,0 +1,36 @@
+{
+  "schema_version": "1.0",
+  "total": 3,
+  "dungeons": [
+    {
+      "id": "beginner_cave",
+      "name": "Beginner Cave",
+      "theme": "beginner",
+      "desc": "A damp cave where novice adventurers begin their journey. Basic monsters lurk in the shadows.",
+      "words": ["Slime", "Goblin", "Wolf", "Bat", "Rat", "Skeleton", "Cave", "Dark", "Deep", "Echo"],
+      "difficulty": "A1",
+      "sessionLength": "30–60 sec",
+      "recommended": "Novice"
+    },
+    {
+      "id": "fire_tower",
+      "name": "Fire Tower",
+      "theme": "fire",
+      "desc": "A blazing tower wreathed in eternal flame. Fire-type words grant massive bonuses here.",
+      "words": ["Fire", "Burn", "Flame", "Blaze", "Smoke", "Ash", "Spark", "Dragon", "Magic", "Heat"],
+      "difficulty": "A2",
+      "sessionLength": "60–90 sec",
+      "recommended": "Fire Mage"
+    },
+    {
+      "id": "merchant_guild",
+      "name": "Merchant Guild",
+      "theme": "merchant",
+      "desc": "The bustling center of commerce. Master commerce words to unlock merchant bonuses.",
+      "words": ["Buy", "Sell", "Trade", "Gold", "Market", "Price", "Merchant", "Profit", "Coin", "Treasure"],
+      "difficulty": "A2",
+      "sessionLength": "60–90 sec",
+      "recommended": "Merchant"
+    }
+  ]
+}
