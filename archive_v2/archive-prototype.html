@@ -4,106 +4,32 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Archive System Phase1 - Prototype</title>
-<link rel="stylesheet" href="archive-theme.css">
 <style>
   html, body {
     margin: 0;
     padding: 0;
     height: 100%;
   }
-  #archive-filter {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 180px;
-    height: calc(100vh - 100px);
-    overflow: auto;
-    box-sizing: border-box;
-    border-right: 1px solid #ccc;
-    padding: 8px;
-  }
   #archive-graph {
-    position: absolute;
-    top: 0;
-    left: 180px;
-    right: 250px;
-    height: calc(100vh - 100px);
-  }
-  #archive-detail {
-    position: fixed;
-    top: 0;
-    right: 0;
-    width: 250px;
-    height: calc(100vh - 100px);
-    overflow: auto;
-    box-sizing: border-box;
-    border-left: 1px solid #ccc;
-    padding: 8px;
-  }
-  #archive-progress {
-    position: fixed;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    height: 100px;
-    overflow: auto;
-    box-sizing: border-box;
-    border-top: 1px solid #ccc;
-    padding: 8px;
+    width: 100%;
+    height: 100vh;
   }
 </style>
 </head>
 <body>
 
-<div id="archive-filter"></div>
 <div id="archive-graph"></div>
-<div id="archive-detail"></div>
-<div id="archive-progress"></div>
 
 <script src="ArchiveData.js"></script>
 <script src="ArchiveGraph.js"></script>
-<script src="ArchiveDetail.js"></script>
-<script src="ArchiveFilter.js"></script>
-<script src="ArchiveProgress.js"></script>
-<script src="ArchiveTest.js"></script>
 <script>
-  const archiveTest = new ArchiveTest(ArchiveData);
-
-  const detail = new ArchiveDetail("archive-detail", ArchiveData, {
-    onTestClick: function (node) {
-      archiveTest.startWordTest(node.id);
-    }
-  });
-
+  // Phase1動作確認用の最小起動コード
   const graph = new ArchiveGraph("archive-graph", ArchiveData, {
     onNodeClick: function (node) {
+      // Phase1では詳細パネルなし。動作確認としてconsoleに出力するのみ。
       console.log("node clicked:", node);
-      detail.show(node);
     }
   });
-
-  const filter = new ArchiveFilter("archive-filter", ArchiveData, graph);
-
-  const progress = new ArchiveProgress(ArchiveData, graph);
-
-  // 進捗パネルの簡易表示(機能確認用の最小UI)
-  function renderProgressPanel() {
-    const panel = document.getElementById("archive-progress");
-    panel.innerHTML = "";
-
-    const completionLine = document.createElement("div");
-    completionLine.textContent = "Archive Completion: " + progress.getCompletion() + "%";
-    panel.appendChild(completionLine);
-
-    const categoryCompletion = progress.getAllCategoryCompletion();
-    Object.keys(categoryCompletion).forEach((category) => {
-      const line = document.createElement("div");
-      line.textContent = category + ": " + categoryCompletion[category] + "%";
-      panel.appendChild(line);
-    });
-  }
-
-  renderProgressPanel();
 </script>
 
 </body>
