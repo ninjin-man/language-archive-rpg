@@ -249,7 +249,7 @@ function dmRender(){
     [CELL.STAIRS_DOWN]:'dst2',
     [CELL.STAIRS_UP]:'dstu',
   };
-  const icons={[CELL.PLAYER]:'●',[CELL.CHEST]:'🎁',[CELL.CHEST_GOLD]:'💰',[CELL.EVENT]:'❓',[CELL.EXIT]:'🚪',[CELL.ENEMY]:'👾',[CELL.STAIRS_DOWN]:'↓',[CELL.STAIRS_UP]:'↑'};
+  const icons={[CELL.PLAYER]:'<img src="assets/player.png" class="player-icon">',[CELL.CHEST]:'🎁',[CELL.CHEST_GOLD]:'💰',[CELL.EVENT]:'❓',[CELL.EXIT]:'🚪',[CELL.ENEMY]:'👾',[CELL.STAIRS_DOWN]:'↓',[CELL.STAIRS_UP]:'↑'};
   for(let y=0;y<GH;y++)for(let x=0;x<GW;x++){
     const key=`${x},${y}`;
     const fog=!explored.has(key)&&g[y][x]!==CELL.PLAYER;

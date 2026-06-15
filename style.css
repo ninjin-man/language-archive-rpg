@@ -363,6 +363,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .dpl{background:radial-gradient(circle,rgba(77,200,224,.5),rgba(30,80,144,.5));border:1.5px solid var(--cyan);
   animation:pp 1s ease infinite alternate;box-shadow:0 0 10px rgba(77,200,224,.4)}
 @keyframes pp{from{box-shadow:0 0 6px rgba(77,200,224,.3)}to{box-shadow:0 0 16px rgba(77,200,224,.8)}}
+.player-icon{width:24px;height:24px;object-fit:contain;image-rendering:pixelated}
 .dch{background:radial-gradient(circle,rgba(232,201,106,.35),rgba(200,168,75,.12));border:1px solid var(--gold);
   box-shadow:0 0 8px rgba(200,168,75,.25);animation:gp 1.4s ease infinite alternate}
 @keyframes gp{from{box-shadow:0 0 6px rgba(200,168,75,.2)}to{box-shadow:0 0 14px rgba(200,168,75,.55)}}
