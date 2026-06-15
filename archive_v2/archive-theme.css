@@ -1,0 +1,98 @@
+/* archive-theme.css
+   Phase7: ダークファンタジーテーマ(色・装飾のみ)
+
+   実装順:
+   1. カラーテーマ(全体背景・テキスト色)
+   2. ノード発光(SVG circle/line/text)
+   3. パネル装飾(フィルタ/詳細/進捗パネル、ボタン)
+   4. 背景演出(魔法陣風背景)
+
+   注意:
+   - レイアウト(position/width/height等)は archive-prototype.html の
+     既存<style>に残置されており、本ファイルでは上書きしない。
+   - JavaScript / データ構造は無変更。
+   - アニメーション(@keyframes, transition)は使用しない。
+*/
+
+/* ==================================================================
+   1. カラーテーマ
+   ================================================================== */
+
+html, body {
+  background-color: #0a0e1a;
+  color: #e8d9a0;
+  font-family: "Georgia", "Times New Roman", serif;
+}
+
+/* ==================================================================
+   2. ノード発光
+   ================================================================== */
+
+/* SVG全体の基本背景(濃紺〜黒) */
+#archive-graph svg {
+  background-color: #0a0e1a;
+}
+
+/* 接続線: 細い金ライン */
+#archive-links line {
+  stroke: #7a6428 !important;
+  stroke-width: 1 !important;
+}
+
+/* ノード円: 金色の縁 + 発光 */
+#archive-nodes circle {
+  fill: #1c2333 !important;
+  stroke: #d4af37 !important;
+  stroke-width: 1.5 !important;
+  filter: drop-shadow(0 0 3px #d4af37) drop-shadow(0 0 6px rgba(212, 175, 55, 0.5));
+}
+
+/* ノードラベル: 金色テキスト + ほのかな発光 */
+#archive-nodes text {
+  fill: #f0e0a0 !important;
+  filter: drop-shadow(0 0 2px rgba(240, 224, 160, 0.8));
+}
+
+/* ==================================================================
+   3. パネル装飾
+   ================================================================== */
+
+#archive-filter,
+#archive-detail,
+#archive-progress {
+  background-color: rgba(10, 14, 26, 0.92);
+  border-color: #d4af37 !important;
+  color: #e8d9a0;
+}
+
+#archive-filter label,
+#archive-detail p,
+#archive-progress div {
+  color: #e8d9a0;
+}
+
+#archive-filter input[type="checkbox"] {
+  accent-color: #d4af37;
+}
+
+#archive-filter button,
+#archive-detail button {
+  background-color: #1c2333;
+  color: #f0e0a0;
+  border: 1px solid #d4af37;
+  padding: 4px 10px;
+  font-family: inherit;
+}
+
+/* ==================================================================
+   4. 背景演出(魔法陣風)
+   ================================================================== */
+
+#archive-graph {
+  background-color: #0a0e1a;
+  background-image:
+    radial-gradient(circle at center, rgba(212, 175, 55, 0.10) 0%, rgba(212, 175, 55, 0.04) 35%, transparent 60%),
+    repeating-conic-gradient(from 0deg at center, rgba(212, 175, 55, 0.06) 0deg 2deg, transparent 2deg 30deg),
+    radial-gradient(circle at center, transparent 0%, transparent 30%, rgba(212, 175, 55, 0.05) 31%, transparent 32%),
+    radial-gradient(circle at center, transparent 0%, transparent 55%, rgba(212, 175, 55, 0.05) 56%, transparent 57%);
+}
