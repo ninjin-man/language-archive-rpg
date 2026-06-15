@@ -231,11 +231,13 @@ function loadFloor(f){
   if(lbl)lbl.textContent=`深度 ${f}F / ${DM.maxFloor}F`;
 }
 
+// 不思議のダンジョン形式: 主人公中心のビューポート (VW x VH) をマップ側のオフセットで描画
+const VW=7,VH=7; // viewport size (odd: 中心セルが常にプレイヤー)
 function dmRender(){
   const gc=document.getElementById('dm-grid');
   const fl=DM.floors[DM.floor];if(!fl)return;
-  const {grid:g,explored}=fl;
-  gc.style.gridTemplateColumns=`repeat(${GW},27px)`;
+  const {grid:g,explored,playerPos:p}=fl;
+  gc.style.gridTemplateColumns=`repeat(${VW},27px)`;
   let html='';
   const T={
     [CELL.WALL]:'dwa',
@@ -250,16 +252,24 @@ function dmRender(){
     [CELL.STAIRS_UP]:'dstu',
   };
   const icons={[CELL.PLAYER]:'<img src="assets/player.png" class="player-icon">',[CELL.CHEST]:'🎁',[CELL.CHEST_GOLD]:'💰',[CELL.EVENT]:'❓',[CELL.EXIT]:'🚪',[CELL.ENEMY]:'👾',[CELL.STAIRS_DOWN]:'↓',[CELL.STAIRS_UP]:'↑'};
-  for(let y=0;y<GH;y++)for(let x=0;x<GW;x++){
-    const key=`${x},${y}`;
-    const fog=!explored.has(key)&&g[y][x]!==CELL.PLAYER;
+  // プレイヤーを中心(center)に置くためのマップ側オフセット
+  const ox=p.x-Math.floor(VW/2);
+  const oy=p.y-Math.floor(VH/2);
+  for(let vy=0;vy<VH;vy++)for(let vx=0;vx<VW;vx++){
+    const mx=ox+vx,my=oy+vy; // マップ座標
+    // マップ範囲外: 壁タイルで補完
+    if(mx<0||mx>=GW||my<0||my>=GH){html+=`<div class="dc dwa"></div>`;continue}
+    const key=`${mx},${my}`;
+    const fog=!explored.has(key)&&g[my][mx]!==CELL.PLAYER;
     if(fog){html+=`<div class="dc dfo"></div>`;continue}
-    const t=g[y][x];
+    const t=g[my][mx];
     const cls=T[t]||'dfl';
     const ico=icons[t]||'';
     html+=`<div class="dc ${cls}">${ico}</div>`;
   }
   gc.innerHTML=html;
+  // デバッグ用ログ: プレイヤー位置・マップ総タイル数・オフセット
+  console.log(`[Dungeon] player=(${p.x},${p.y}) mapTiles=${GW*GH} offset=(${ox},${oy})`);
   document.getElementById('dm-s').textContent=DM.steps;
   document.getElementById('dm-w').textContent=DM.wordsFound;
   // Action button state
@@ -397,6 +407,7 @@ function closeEventChoice(){
   if(ov)ov.classList.remove('show');
   DM.pending=null;
   dmRender();
+  dmProcessQueue();
 }
 // choice: 'read'|'destroy'|'take'
 function resolveEventChoice(choice){
@@ -435,3 +446,92 @@ function resolveEventChoice(choice){
   closeEventChoice();
   if(msg){document.getElementById('dm-msg').textContent=msg;dmLog(msg)}
 }
+
+/* ════ キーボード操作: 連続入力(キーリピート)対応 ════
+   - keydown/keyupで押下状態を管理し、複数キーの同時押し・切り替えに対応
+   - 押し続けると 初回遅延(REPEAT_DELAY) 後から 一定間隔(REPEAT_INTERVAL) で移動を繰り返す
+   - 移動完了直後にキューを処理することで、入力が無視されないようにする */
+const DM_KEY_DIR={
+  'ArrowUp':'up','ArrowDown':'down','ArrowLeft':'left','ArrowRight':'right',
+  'w':'up','s':'down','a':'left','d':'right',
+  'W':'up','S':'down','A':'left','D':'right'
+};
+const DM_REPEAT_DELAY=250;   // 初回入力からリピート開始までの遅延(ms)
+const DM_REPEAT_INTERVAL=120;// リピート間隔(ms)
+const dmInput={
+  keysDown:new Set(),   // 現在押下中のキー(方向)
+  activeDir:null,       // リピート中の方向
+  timer:null,           // setTimeout/setIntervalのID
+  queue:[]              // 移動完了直後に処理する入力キュー
+};
+function dmIsOverlayOpen(){
+  return document.getElementById('dmov')?.classList.contains('show');
+}
+function dmStopRepeat(){
+  if(dmInput.timer){clearTimeout(dmInput.timer);clearInterval(dmInput.timer);dmInput.timer=null}
+  dmInput.activeDir=null;
+}
+function dmStartRepeat(dir){
+  dmInput.activeDir=dir;
+  dmStopRepeatTimerOnly();
+  // 初回遅延後にリピート開始
+  dmInput.timer=setTimeout(()=>{
+    if(dmInput.activeDir!==dir)return;
+    dmInput.timer=setInterval(()=>{
+      if(dmInput.activeDir!==dir||!dmIsOverlayOpen()){dmStopRepeat();return}
+      dmQueueMove(dir);
+    },DM_REPEAT_INTERVAL);
+  },DM_REPEAT_DELAY);
+}
+function dmStopRepeatTimerOnly(){
+  if(dmInput.timer){clearTimeout(dmInput.timer);clearInterval(dmInput.timer);dmInput.timer=null}
+}
+// 移動をキューに積み、現在処理中でなければ即時実行。
+// dmv()自体は同期処理だが、setTimeoutを伴う遷移(階段・出口)中は
+// pending/オーバーレイ状態を見て後続入力を取りこぼさないようにする
+function dmQueueMove(dir){
+  dmInput.queue.push(dir);
+  dmProcessQueue();
+}
+function dmProcessQueue(){
+  while(dmInput.queue.length){
+    if(DM.pending)break; // イベント選択待ち等の間はキューを保留
+    const dir=dmInput.queue.shift();
+    dmv(dir);
+  }
+}
+function dmHandleKeydown(e){
+  if(!dmIsOverlayOpen())return;
+  const dir=DM_KEY_DIR[e.key];
+  if(!dir)return;
+  e.preventDefault();
+  if(dmInput.keysDown.has(e.key))return; // 同キーのリピートイベントは無視(ブラウザ標準リピート対策)
+  dmInput.keysDown.add(e.key);
+  // 即時1マス移動
+  dmQueueMove(dir);
+  // 押し続けによる連続移動を開始
+  dmStartRepeat(dir);
+}
+function dmHandleKeyup(e){
+  const dir=DM_KEY_DIR[e.key];
+  if(!dir)return;
+  dmInput.keysDown.delete(e.key);
+  if(dmInput.activeDir===dir){
+    dmStopRepeat();
+    // 他に押されているキーがあれば、その方向のリピートに切り替える
+    for(const k of dmInput.keysDown){
+      const d=DM_KEY_DIR[k];
+      if(d){dmStartRepeat(d);break}
+    }
+  }
+}
+window.addEventListener('keydown',dmHandleKeydown);
+window.addEventListener('keyup',dmHandleKeyup);
+// オーバーレイを閉じた際は入力状態をリセット
+const _origCloseDmap=closeDmap;
+closeDmap=function(){
+  dmInput.keysDown.clear();
+  dmInput.queue.length=0;
+  dmStopRepeat();
+  _origCloseDmap();
+};
