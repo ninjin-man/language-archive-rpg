@@ -244,10 +244,11 @@
 <!-- ARCHIVE V2 (Phase8: archive_v2プロトタイプ表示用モーダル, 既存システム非依存) -->
 <div id="arcv2-ov" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.85);z-index:9999">
   <div style="position:absolute;top:0;left:0;right:0;bottom:0;display:flex;flex-direction:column">
-    <div style="display:flex;justify-content:flex-end;padding:6px">
+    <div style="display:flex;justify-content:flex-end;align-items:center;padding:6px;gap:8px">
+      <span id="arcv2-status" style="color:#fff;font-size:12px"></span>
       <button onclick="closeArcV2()" style="padding:6px 12px">✕ 閉じる</button>
     </div>
-    <iframe id="arcv2-frame" src="" style="flex:1;width:100%;border:0"></iframe>
+    <iframe id="arcv2-frame" src="" style="flex:1;width:100%;border:0;background:#fff"></iframe>
   </div>
 </div>
 
@@ -264,9 +265,19 @@
   // archive_v2プロトタイプ表示用(既存JSとは独立、ArchiveData等の名前空間に影響なし)
   function openArcV2() {
     var frame = document.getElementById('arcv2-frame');
-    if (!frame.src) {
-      frame.src = 'archive_v2/archive-prototype.html';
-    }
+    var status = document.getElementById('arcv2-status');
+    var url = new URL('archive_v2/archive-prototype.html', document.baseURI).href;
+
+    status.textContent = 'loading: ' + url;
+
+    frame.onload = function () {
+      status.textContent = 'loaded: ' + url;
+    };
+    frame.onerror = function () {
+      status.textContent = 'error: ' + url;
+    };
+
+    frame.src = url;
     document.getElementById('arcv2-ov').style.display = 'block';
   }
   function closeArcV2() {
