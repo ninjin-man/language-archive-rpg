@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,viewport-fit=cover">
 <title>Language Archive RPG</title>
 <link rel="stylesheet" href="style.css">
 </head>
@@ -50,6 +50,7 @@
   <div id="arc-wrap">
     <svg id="arc-svg"></svg>
     <div id="arc-nodes"></div>
+    <button class="arc-cat-toggle" onclick="document.getElementById('arc-sb').classList.toggle('mob-open');syncArcBackdrop()">📂 カテゴリ</button>
     <div class="arc-zoom">
       <button onclick="zoomArc(0.15)">+</button>
       <button onclick="zoomArc(-0.15)">−</button>
@@ -75,6 +76,7 @@
       <button class="btn btn-d" onclick="closeDet()">×</button>
     </div>
   </div>
+  <div id="arc-backdrop" onclick="closeDet();document.getElementById('arc-sb')?.classList.remove('mob-open');syncArcBackdrop()"></div>
 </div>
 
 <!-- EXPLORE -->

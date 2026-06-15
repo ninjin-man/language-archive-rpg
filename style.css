@@ -9,19 +9,27 @@
   --cEx:#4dc8e0;--cMg:#8a6dfa;--cW:#c06040;--cMt:#7a9090;
   --m0:#18203a;--m1:#1e3860;--m2:#1e5090;--m3:#c8a84b;--m4:#e0982a;
   --ease:.15s ease;--r:4px;--rlg:8px;
+  /* Safe Area (iOS notch/home-indicator) */
+  --sat:env(safe-area-inset-top,0px);--sar:env(safe-area-inset-right,0px);
+  --sab:env(safe-area-inset-bottom,0px);--sal:env(safe-area-inset-left,0px);
+  --tap:44px; /* minimum touch target */
 }
 *{box-sizing:border-box;margin:0;padding:0}
-html,body{height:100%;overflow:hidden}
-body{background:var(--void);color:var(--t0);font-family:'Segoe UI',system-ui,sans-serif;font-size:13px;line-height:1.4}
+html,body{height:100%;overflow:hidden;overflow-x:hidden;width:100%}
+body{background:var(--void);color:var(--t0);font-family:'Segoe UI',system-ui,sans-serif;font-size:13px;line-height:1.4;
+  -webkit-text-size-adjust:100%;text-size-adjust:100%}
 body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
   background:radial-gradient(ellipse 130% 80% at 50% -5%,rgba(200,168,75,.04) 0%,transparent 55%),
              radial-gradient(ellipse 60% 50% at 85% 95%,rgba(138,109,250,.035) 0%,transparent 50%)}
 
 /* ── LAYOUT ── */
-#root{display:flex;flex-direction:column;height:100vh;position:relative;z-index:1}
+#root{display:flex;flex-direction:column;height:100vh;height:100dvh;position:relative;z-index:1;
+  max-width:100vw;overflow-x:hidden;
+  padding-left:var(--sal);padding-right:var(--sar)}
 #hdr{display:flex;align-items:center;gap:10px;padding:7px 14px;flex-shrink:0;
+  padding-top:calc(7px + var(--sat));
   background:linear-gradient(180deg,var(--s2),var(--s1));
-  border-bottom:1px solid var(--b0);position:relative}
+  border-bottom:1px solid var(--b0);position:relative;z-index:50}
 #hdr::after{content:'';position:absolute;bottom:-1px;left:8%;right:8%;height:1px;
   background:linear-gradient(90deg,transparent,var(--gold-lo),transparent)}
 .logo{font-size:13px;font-weight:800;letter-spacing:.14em;color:var(--gold);text-transform:uppercase;
@@ -171,6 +179,8 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 /* ── DETAIL PANEL (right) ── */
 #arc-det{width:230px;flex-shrink:0;background:var(--s2);border-left:1px solid var(--b0);
   display:flex;flex-direction:column;overflow:hidden}
+#arc-backdrop{display:none}    /* mobile-only drawer backdrop (shown in @media ≤430px) */
+.arc-cat-toggle{display:none}  /* mobile-only category drawer toggle */
 .det-hdr{padding:10px;background:linear-gradient(180deg,var(--s3),var(--s2));border-bottom:1px solid var(--b0);flex-shrink:0}
 .det-lbl{font-size:8px;letter-spacing:.14em;text-transform:uppercase;color:var(--t2);margin-bottom:7px}
 .det-wr{display:flex;align-items:center;gap:7px;margin-bottom:5px}
@@ -691,7 +701,112 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 ::-webkit-scrollbar-track{background:var(--s1)}
 ::-webkit-scrollbar-thumb{background:var(--b0);border-radius:2px}
 @media(max-width:600px){
-  #arc-sb{display:none}#arc-det{width:180px}
+  #arc-sb{width:180px}
   .qch{grid-template-columns:1fr}.dg{grid-template-columns:1fr}.jg{grid-template-columns:1fr}
 }
-@media(max-width:420px){#arc-det{display:none}}
+
+/* ══════════════════════════════════════════════════════
+   MOBILE (≤430px, e.g. iPhone 13/14/15 @390×844)
+   - 横スクロール禁止 / ボタン44px以上 / フォント16px以上
+   - 固定ヘッダー対応 / Safe Area対応 / 縦持ち優先
+   ══════════════════════════════════════════════════════ */
+@media(max-width:430px){
+  html,body{overflow-x:hidden}
+  body{font-size:16px}
+
+  /* ── Header: 固定表示 + Safe Area ── */
+  #hdr{flex-wrap:wrap;row-gap:4px;padding:8px 10px;padding-top:calc(8px + var(--sat))}
+  .logo{font-size:13px}
+  .hdr-r{gap:8px;flex-wrap:wrap;justify-content:flex-end;font-size:11px}
+  .hs{font-size:11px}
+  .hs b{font-size:12px}
+  .ew{order:99;width:100%;align-items:stretch}
+  .eb{width:100%}
+
+  /* ── Nav: タップ領域44px以上、内部スクロールは許可 ── */
+  #nav{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .nb{min-height:var(--tap);padding:8px 16px;font-size:11px;justify-content:center}
+  .nb .ni{font-size:18px}
+
+  /* ── Quest bar ── */
+  #qbar{padding:8px 10px}
+  .qb-item{min-height:36px;font-size:12px;padding:6px 10px}
+
+  /* ── Content screens: Safe Area対応の下部余白 ── */
+  #s-exp,#s-cft,#s-skill,#s-job{padding:10px;padding-bottom:calc(10px + var(--sab) + 12px)}
+
+  /* ── Archive: サイドバーをドロワー化、詳細をボトムシート化 ── */
+  #s-arc{position:relative}
+  #arc-sb{position:absolute;top:0;left:0;bottom:0;width:78vw;max-width:280px;z-index:60;
+    transform:translateX(-100%);transition:transform .25s ease;box-shadow:8px 0 24px rgba(0,0,0,.5)}
+  #arc-sb.mob-open{transform:translateX(0)}
+  .ci{min-height:var(--tap);padding:10px 12px}
+  .ci-name{font-size:14px}
+
+  .arc-cat-toggle{display:block;position:absolute;top:10px;left:10px;z-index:40;
+    background:var(--s3);border:1px solid var(--b1);border-radius:var(--rlg);
+    color:var(--t0);font-size:13px;font-weight:700;padding:8px 14px;min-height:var(--tap);
+    cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.4)}
+  .arc-zoom button{width:40px;height:40px;font-size:15px}
+
+  #arc-det{position:fixed;left:0;right:0;bottom:0;top:auto;width:100%;max-width:100%;
+    max-height:75vh;border-left:none;border-top:1px solid var(--b1);
+    border-radius:14px 14px 0 0;z-index:70;
+    transform:translateY(100%);transition:transform .25s ease;
+    box-shadow:0 -8px 30px rgba(0,0,0,.6);
+    padding-bottom:var(--sab)}
+  #arc-det.mob-open{transform:translateY(0)}
+
+  #arc-backdrop{display:none;position:fixed;inset:0;background:rgba(4,6,12,.6);z-index:55}
+  #arc-backdrop.show{display:block}
+  .det-lbl{font-size:11px}
+  .det-w{font-size:24px}
+  .det-j{font-size:14px}
+  .det-body{font-size:14px}
+  .dst{font-size:10px}
+  .chip{font-size:12px;padding:5px 9px;min-height:32px;display:inline-flex;align-items:center}
+  .ms-r{font-size:12px}
+  .evo-cond{font-size:12px;padding:8px 10px}
+
+  /* ── Buttons: 44px以上 / 16px以上 ── */
+  .btn{font-size:14px;padding:11px 8px;min-height:var(--tap)}
+  .cact{font-size:14px;padding:12px 18px;min-height:var(--tap);width:100%}
+  .dc2-btn{font-size:14px;padding:12px;min-height:var(--tap)}
+  .jbtn{font-size:13px;padding:11px 8px;min-height:var(--tap)}
+  .evbtn{font-size:14px;padding:12px 14px;min-height:var(--tap)}
+  .batk-btn{font-size:13px;padding:12px 14px;min-height:var(--tap)}
+  .qc{font-size:15px;padding:13px 10px;min-height:var(--tap)}
+  .wch{font-size:13px;padding:8px 12px;min-height:36px;display:inline-flex;align-items:center}
+  .csl{min-height:64px;font-size:11px}
+
+  /* ── Modals: 画面幅に収める ── */
+  .evbox,.qbox,.bf-box,.dcard{max-width:calc(100vw - 24px);width:100%}
+  .dcard{padding:20px 16px;min-width:0}
+  #disc-ov{padding:12px}
+  .evov,#quiz-ov,.dmov{padding:10px;padding-bottom:calc(10px + var(--sab))}
+
+  /* ── Grids: 1カラムに ── */
+  .dg{grid-template-columns:1fr}
+  .jg{grid-template-columns:1fr}
+  .qch{grid-template-columns:1fr}
+  .relic-grid{grid-template-columns:repeat(2,1fr)}
+  .skslots{grid-template-columns:1fr}
+  .csls.sk4{grid-template-columns:1fr 1fr}
+  .dr-grid{gap:6px}
+
+  /* ── Toasts: Safe Area + 折り返し ── */
+  #toasts{bottom:calc(12px + var(--sab));max-width:calc(100vw - 24px)}
+  .toast{white-space:normal;font-size:13px;max-width:100%;text-align:center}
+
+  /* ── Dungeon map modal ── */
+  .dmbox{width:100%;max-width:100%}
+  .dm-floor-bar{max-width:100%}
+  .dc{width:24px;height:24px;font-size:10px}
+  .dmbody{padding:10px}
+  .dm-grid-frame{padding:6px}
+}
+
+@media(max-width:340px){
+  .hdr-r .hs:nth-child(n+4){display:none} /* 極小幅では二次的なステータスを省略 */
+  .csls.sk4{grid-template-columns:1fr}
+}

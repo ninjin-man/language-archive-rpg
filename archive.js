@@ -243,10 +243,17 @@ function renderCatList(){
   });
   list.innerHTML=html;
 }
-function setFilt(cat){S.filt=cat;selW=null;closeDet();hideTip();renderArc();document.getElementById('arc-wrap').scrollTop=0}
+function setFilt(cat){S.filt=cat;selW=null;closeDet();hideTip();renderArc();document.getElementById('arc-wrap').scrollTop=0;document.getElementById('arc-sb')?.classList.remove('mob-open');syncArcBackdrop()}
+
+// Mobile drawer backdrop: shown if either the category drawer or detail sheet is open
+function syncArcBackdrop(){
+  const open=document.getElementById('arc-sb')?.classList.contains('mob-open')
+    || document.getElementById('arc-det')?.classList.contains('mob-open');
+  document.getElementById('arc-backdrop')?.classList.toggle('show',!!open);
+}
 
 /* ════ NODE SELECT / DETAIL ════ */
-function selNode(word){selW=word;renderNodes();showDet(word)}
+function selNode(word){selW=word;renderNodes();showDet(word);document.getElementById('arc-det')?.classList.add('mob-open');syncArcBackdrop()}
 function showDet(word){
   const w=WM[word];if(!w)return;
   const si=gsi(word);const unk=si===0;const col=cc(w.archive);
@@ -323,7 +330,7 @@ function showDet(word){
   else if(si>=ST.length-1){qb.textContent='✦ マスター';qb.disabled=true}
   else{qb.textContent='📝 Quiz +EXP';qb.disabled=false;qb.onclick=startWQ}
 }
-function closeDet(){selW=null;document.getElementById('det-top').innerHTML='<div style="text-align:center;padding:14px 0;color:var(--t2);font-size:10px">ノードを選択</div>';document.getElementById('det-body').innerHTML='';document.getElementById('det-ftr').style.display='none'}
+function closeDet(){selW=null;document.getElementById('det-top').innerHTML='<div style="text-align:center;padding:14px 0;color:var(--t2);font-size:10px">ノードを選択</div>';document.getElementById('det-body').innerHTML='';document.getElementById('det-ftr').style.display='none';document.getElementById('arc-det')?.classList.remove('mob-open');syncArcBackdrop()}
 function buildSC(word){
   const chain=[word];const vis=new Set([word]);let cur=word;
   for(let i=0;i<4;i++){const w=WM[cur];if(!w)break;const s=(w.relations.synonyms||[]).filter(s=>WM[s]&&!vis.has(s));if(!s.length)break;const nx=s.find(s=>gst(s)!=='unknown')||s[0];chain.push(nx);vis.add(nx);cur=nx}
