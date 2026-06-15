@@ -50,20 +50,20 @@
   <div id="arc-wrap">
     <svg id="arc-svg"></svg>
     <div id="arc-nodes"></div>
-    <button class="arc-cat-toggle" onclick="document.getElementById('arc-sb').classList.toggle('mob-open');syncArcBackdrop()">📂 カテゴリ</button>
-    <div class="arc-zoom">
-      <button onclick="zoomArc(0.15)">+</button>
-      <button onclick="zoomArc(-0.15)">−</button>
-      <button onclick="zoomArc(0)" title="リセット">⊙</button>
-    </div>
-    <div class="arc-leg">
-      <div style="font-size:7px;letter-spacing:.1em;text-transform:uppercase;color:var(--t2);margin-bottom:2px">習熟度</div>
-      <div class="lr"><div class="ld" style="border-color:#1e2440;background:#1e2440"></div><span>未発見</span></div>
-      <div class="lr"><div class="ld" style="border-color:var(--cyan);background:rgba(77,200,224,.35)"></div><span>発見済み</span></div>
-      <div class="lr"><div class="ld" style="border-color:var(--m2);background:rgba(30,80,144,.5)"></div><span>学習中</span></div>
-      <div class="lr"><div class="ld" style="border-color:var(--gold);background:rgba(200,168,75,.35)"></div><span>習熟済み</span></div>
-      <div class="lr"><div class="ld" style="border-color:var(--amber);background:rgba(224,152,42,.45)"></div><span>マスター</span></div>
-    </div>
+  </div>
+  <button class="arc-cat-toggle" onclick="document.getElementById('arc-sb').classList.toggle('mob-open');syncArcBackdrop()">📂 カテゴリ</button>
+  <div class="arc-zoom">
+    <button onclick="zoomArc(0.15)">+</button>
+    <button onclick="zoomArc(-0.15)">−</button>
+    <button onclick="zoomArc(0)" title="リセット">⊙</button>
+  </div>
+  <div class="arc-leg">
+    <div style="font-size:7px;letter-spacing:.1em;text-transform:uppercase;color:var(--t2);margin-bottom:2px">習熟度</div>
+    <div class="lr"><div class="ld" style="border-color:#1e2440;background:#1e2440"></div><span>未発見</span></div>
+    <div class="lr"><div class="ld" style="border-color:var(--cyan);background:rgba(77,200,224,.35)"></div><span>発見済み</span></div>
+    <div class="lr"><div class="ld" style="border-color:var(--m2);background:rgba(30,80,144,.5)"></div><span>学習中</span></div>
+    <div class="lr"><div class="ld" style="border-color:var(--gold);background:rgba(200,168,75,.35)"></div><span>習熟済み</span></div>
+    <div class="lr"><div class="ld" style="border-color:var(--amber);background:rgba(224,152,42,.45)"></div><span>マスター</span></div>
   </div>
   <div id="arc-det">
     <div class="det-hdr">

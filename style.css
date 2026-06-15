@@ -70,7 +70,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .scr.on{display:flex}
 
 /* ── ARCHIVE ── */
-#s-arc{flex-direction:row}
+#s-arc{flex-direction:row;position:relative}
 #arc-sb{width:158px;flex-shrink:0;background:var(--s2);border-right:1px solid var(--b0);
   display:flex;flex-direction:column;overflow:hidden}
 .sb-title{padding:8px 10px 5px;font-size:8px;letter-spacing:.14em;text-transform:uppercase;
@@ -363,7 +363,6 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .dpl{background:radial-gradient(circle,rgba(77,200,224,.5),rgba(30,80,144,.5));border:1.5px solid var(--cyan);
   animation:pp 1s ease infinite alternate;box-shadow:0 0 10px rgba(77,200,224,.4)}
 @keyframes pp{from{box-shadow:0 0 6px rgba(77,200,224,.3)}to{box-shadow:0 0 16px rgba(77,200,224,.8)}}
-.player-icon{width:24px;height:24px;object-fit:contain;image-rendering:pixelated}
 .dch{background:radial-gradient(circle,rgba(232,201,106,.35),rgba(200,168,75,.12));border:1px solid var(--gold);
   box-shadow:0 0 8px rgba(200,168,75,.25);animation:gp 1.4s ease infinite alternate}
 @keyframes gp{from{box-shadow:0 0 6px rgba(200,168,75,.2)}to{box-shadow:0 0 14px rgba(200,168,75,.55)}}
@@ -737,7 +736,6 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
   #s-exp,#s-cft,#s-skill,#s-job{padding:10px;padding-bottom:calc(10px + var(--sab) + 12px)}
 
   /* ── Archive: サイドバーをドロワー化、詳細をボトムシート化 ── */
-  #s-arc{position:relative}
   #arc-sb{position:absolute;top:0;left:0;bottom:0;width:78vw;max-width:280px;z-index:60;
     transform:translateX(-100%);transition:transform .25s ease;box-shadow:8px 0 24px rgba(0,0,0,.5)}
   #arc-sb.mob-open{transform:translateX(0)}
@@ -748,7 +746,10 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
     background:var(--s3);border:1px solid var(--b1);border-radius:var(--rlg);
     color:var(--t0);font-size:13px;font-weight:700;padding:8px 14px;min-height:var(--tap);
     cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.4)}
+  .arc-zoom{top:10px;right:10px;z-index:40}
   .arc-zoom button{width:40px;height:40px;font-size:15px}
+  /* Reserve space at top of the scroll area so the grid never starts under the toggle/zoom bar */
+  #arc-wrap{padding-top:54px}
 
   #arc-det{position:fixed;left:0;right:0;bottom:0;top:auto;width:100%;max-width:100%;
     max-height:75vh;border-left:none;border-top:1px solid var(--b1);

@@ -34,7 +34,7 @@ function computeLayout(){
       const rows=Math.ceil(ws.length/cols);
       y+=rows*ch+rg;
     });
-    AL.__totalH=y;
+    AL.__totalH=y+PAD_Y;
   } else {
     const words=getWords();
     let y=PAD_Y+hh;
