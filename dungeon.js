@@ -424,16 +424,31 @@ function dmResolvePending(){
     startBattle();
     return;
   }
+  // 通常チェスト: アーカイブ(単語)を直接発見させる
+  // 改修(探索テンポ改善・強制クイズ廃止): 解答必須のクイズで進行を止めない。
+  // discover()は既存のDISCOVERY CARDで報酬を提示するだけの非ブロッキングUIなので、
+  // ダンジョン画面(dmov)はそのまま開いたままで良い。
   const d=DM.dungeon;
   const pool=d.words.map(w=>WM[w]).filter(Boolean);
-  // On deeper floors, quiz 2 words
+  // 深い階層ほど複数アーカイブをまとめて入手(従来のクイズ2問仕様を踏襲)
   const n=DM.floor>=5?2:1;
-  const ws=pool.sort(()=>Math.random()-.5).slice(0,n);
   DM.pending=null;
+  const found=[];
+  for(let i=0;i<n;i++){
+    const unknownPool=pool.filter(w=>gst(w.word)==='unknown'&&!found.includes(w.word));
+    const w=pickBonusWord(unknownPool.length?unknownPool:pool);
+    if(w&&gst(w.word)==='unknown'){discover(w.word);DM.wordsFound++;found.push(w.word)}
+  }
+  let msg;
+  if(found.length){
+    msg=`🎁 宝箱からアーカイブ「${found.join('」「')}」を発見！`;
+  }else{
+    const amt=Math.round((5+Math.floor(Math.random()*DM.floor*3))*getGoldMultiplier());
+    S.gold=(S.gold||0)+amt;save();updateHdr();
+    msg=`🎁 宝箱からGold ${amt} を見つけた。`;
+  }
+  document.getElementById('dm-msg').textContent=msg;dmLog(msg);
   dmRender();
-  QS={words:ws,idx:0,answered:false,score:0,dungeon:d,single:true,fromDungeon:true};
-  document.getElementById('dmov').classList.remove('show'); // hide dungeon while quizzing
-  openQ();showQ();
 }
 
 /* ════ RANDOM EVENT: 古い石碑 — 改修: 探索ループ改善 ════ */
