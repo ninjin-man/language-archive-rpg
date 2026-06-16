@@ -152,6 +152,11 @@
       <span class="dmf-info" id="dm-floor">B1F</span>
       <button class="dmc" onclick="closeDmap()">✕</button>
     </div>
+    <div class="dm-vitals" id="dm-vitals">
+      <span class="dm-vital-label">HP</span>
+      <div class="dm-hpbar2"><div class="dm-hpfill2" id="dm-hpfill2"></div></div>
+      <span class="dm-hptxt2" id="dm-hptxt2">20/20</span>
+    </div>
     <div class="dm-hud" id="dm-hud">
       <span class="dm-hud-job" id="dmh-job">🌱 Novice</span>
       <div class="dm-hud-exp">
@@ -164,14 +169,8 @@
     </div>
     <div class="dmbody">
       <div class="dm-grid-area">
-        <div class="dm-topinfo">
-          <div class="dm-minimap-frame"><div class="dm-minimap" id="dm-minimap"></div></div>
-          <div class="dm-floor-info">
-            <div class="dm-floor-bar"><div class="dm-floor-fill" id="dm-floor-fill" style="width:10%"></div></div>
-            <div class="dm-floor-label" id="dm-floor-label">深度 1F / 10F</div>
-          </div>
-        </div>
-        <div class="dm-grid-frame">
+        <div class="dm-grid-frame" id="dm-grid-frame">
+          <div class="dm-minimap-frame" id="dm-minimap-frame"><div class="dm-minimap" id="dm-minimap"></div></div>
           <div class="dm-grid" id="dm-grid"></div>
         </div>
       </div>
@@ -207,14 +206,6 @@
       <button class="evbtn" onclick="resolveEventChoice('destroy')">💥 破壊する</button>
       <button class="evbtn" onclick="resolveEventChoice('take')">📦 持ち帰る</button>
     </div>
-  </div>
-</div>
-
-<!-- BATTLE (Phase8: 戦闘システム) -->
-<div id="battle-ov" class="evov">
-  <div class="evbox bf-box">
-    <div class="evtitle">⚔️ Battle</div>
-    <div id="battle-body"></div>
   </div>
 </div>
 
