@@ -474,8 +474,15 @@ function dmKillEnemy(enemy){
   DM.kills=(DM.kills||0)+1;
   // 単語発見率上昇: このダンジョン探索中だけ+5%(プレイヤーレベルは追加しない、Phase8 item8)
   DM.battleDiscoverBonus=(DM.battleDiscoverBonus||0)+0.05;
+  // Phase12: 敵撃破でレベルアップ用経験値を取得(Archive EXPと同額を流用、固定成長)
+  gainLevelExp(aexpGain);
+  // Phase10: 低確率でアイテムをドロップ(MVP: 薬草/上薬草のみ)
+  let dropMsg='';
+  const dropRoll=Math.random();
+  if(dropRoll<0.08&&addItem('great_herb',1)){dropMsg=' 🍀上薬草を手に入れた！'}
+  else if(dropRoll<0.40&&addItem('herb',1)){dropMsg=' 🌿薬草を手に入れた！'}
   save();updateHdr();
-  dmLog(`🎉 ${enemy.name}を倒した！ 💰+${goldGain} Gold / 📈+${aexpGain} Archive EXP`);
+  dmLog(`🎉 ${enemy.name}を倒した！ 💰+${goldGain} Gold / 📈+${aexpGain} Archive EXP${dropMsg}`);
 }
 
 // 指定座標が敵の移動先として有効か(壁・プレイヤー・他の敵がいないか)を判定
@@ -506,28 +513,53 @@ function dmMoveEnemyRandom(e,fl){
   if(dmIsWalkable(fl,nx,ny)){e.x=nx;e.y=ny}
 }
 // 敵全体の1ターン分の行動を解決する: 隣接→攻撃、索敵範囲内→追跡、それ以外→ランダム移動
+// 改修(Phase14/15): プレイヤーの行動1回ごとにここを通るため、ターン経過処理(自然回復等)もここで一括処理する
 function dmEnemyTurn(){
   const fl=DM.floors[DM.floor];
-  if(!fl||!fl.enemies||!fl.enemies.length)return;
-  const p=fl.playerPos;
-  fl.enemies.forEach(e=>{
-    if(e.curHp<=0)return;
-    const dist=Math.max(Math.abs(e.x-p.x),Math.abs(e.y-p.y));
-    if(dist<=1){
-      // 隣接: 攻撃(HP育成は軽い防御として反映、仮値)
-      const dmg=Math.max(1,(e.atk||1)-Math.floor((S.stats?.hp||0)/10));
-      DM.playerHp=Math.max(0,DM.playerHp-dmg);
-      dmLog(`💢 ${e.name}の攻撃！ ${dmg}ダメージを受けた`);
-      dmShowFloatDamage(Math.floor(VW/2),Math.floor(VH/2),dmg,'player');
-      e.state='aggro';
-      return;
-    }
-    if(dist<=DM_DETECT_RANGE)e.state='aggro';
-    if(e.state==='aggro')dmMoveEnemyToward(e,p,fl);
-    else if(Math.random()<0.4)dmMoveEnemyRandom(e,fl);
-  });
+  if(fl&&fl.enemies&&fl.enemies.length){
+    const p=fl.playerPos;
+    fl.enemies.forEach(e=>{
+      if(e.curHp<=0)return;
+      const dist=Math.max(Math.abs(e.x-p.x),Math.abs(e.y-p.y));
+      if(dist<=1){
+        // 隣接: 攻撃(Phase11: 防御力ステータスを正式に適用)
+        const dmg=Math.max(1,(e.atk||1)-getPlayerDef());
+        DM.playerHp=Math.max(0,DM.playerHp-dmg);
+        dmLog(`💢 ${e.name}の攻撃！ ${dmg}ダメージを受けた`);
+        dmShowFloatDamage(Math.floor(VW/2),Math.floor(VH/2),dmg,'player');
+        e.state='aggro';
+        return;
+      }
+      if(dist<=DM_DETECT_RANGE)e.state='aggro';
+      if(e.state==='aggro')dmMoveEnemyToward(e,p,fl);
+      else if(Math.random()<0.4)dmMoveEnemyRandom(e,fl);
+    });
+  }
+  // ターン経過処理(Phase15): 自然回復判定。状態異常判定は未実装(将来拡張用のフック)
+  DM.turnCount=(DM.turnCount||0)+1;
+  if(DM.turnCount%10===0)dmNaturalRegen();
   dmRender();
   if(DM.playerHp<=0)dmPlayerDown();
+}
+
+// 自然回復(Phase14): プレイヤー行動10回毎に回復力ぶんHPが回復する。固定割合回復は禁止。
+// HP30%以下では回復量2倍。最大HPを超えない。ログ不要(フローティング表示のみ)。
+function dmNaturalRegen(){
+  if(!DM.dungeon||DM.playerHp<=0||DM.playerHp>=DM.playerMaxHp)return;
+  const regen=getPlayerRegen();
+  if(regen<=0)return;
+  const lowHp=DM.playerHp<=DM.playerMaxHp*0.3;
+  const heal=Math.min(regen*(lowHp?2:1),DM.playerMaxHp-DM.playerHp);
+  if(heal<=0)return;
+  DM.playerHp+=heal;
+  dmShowFloatDamage(Math.floor(VW/2),Math.floor(VH/2),heal,'heal');
+}
+
+// 待機(Phase15): その場で1ターン経過する。移動しないが敵ターン・自然回復は通常通り処理する
+function dmWait(){
+  if(DM.pending)return;
+  dmLog('🧘 待機した。');
+  dmEnemyTurn();
 }
 
 // フローティングダメージ表示(風来のシレン方式): モーダルを出さず数値が上昇しながら消える
@@ -544,7 +576,7 @@ function dmShowFloatDamage(vx,vy,amount,kind){
   const y=padTop+vy*(cw+gap)+cw*0.25;
   const el=document.createElement('div');
   el.className='dmg-float '+(kind||'enemy');
-  el.textContent=String(Math.abs(amount));
+  el.textContent=(kind==='heal'?'+':'')+Math.abs(amount);
   el.style.left=x+'px';
   el.style.top=y+'px';
   frame.appendChild(el);
@@ -697,6 +729,11 @@ function dmProcessQueue(){
 }
 function dmHandleKeydown(e){
   if(!dmIsOverlayOpen())return;
+  if(e.key===' '){ // 待機(Phase15推奨キー)
+    e.preventDefault();
+    dmWait();
+    return;
+  }
   const dir=DM_KEY_DIR[e.key];
   if(!dir)return;
   e.preventDefault();

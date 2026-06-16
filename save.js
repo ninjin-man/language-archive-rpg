@@ -1,8 +1,9 @@
 /* ════ STATE & SAVE/LOAD ════ */
 const KEY='arc_v4';
 let S={screen:'arc',job:'novice',unlockedJobs:['novice'],exp:0,ap:0,gold:0,relics:[],
-  aexp:0,stats:{atk:0,hp:0,spd:0},wlv:{},skills:[],equippedSkills:[null,null,null],
+  aexp:0,stats:{atk:0,hp:0,spd:0,def:0,regen:0},wlv:{},skills:[],equippedSkills:[null,null,null],
   dungeonRecords:{maxFloor:0,totalRuns:0,kills:0},
+  level:1,lvExp:0,inventory:[], // Phase10-12: 持ち物・レベルアップ(ローグライクコアループ)
   ws:{},cwrd:[],citem:[],clog:[],filt:'all',off:{x:0,y:0}};
 
 // Word level helpers (単語進化システム)
@@ -24,6 +25,13 @@ function load(){
   S.equippedSkills=S.equippedSkills.map(id=>id&&(S.skills||[]).find(sk=>sk.id===id)?id:null);
   // Phase7: ensure dungeon records exist
   if(!S.dungeonRecords)S.dungeonRecords={maxFloor:0,totalRuns:0,kills:0};
+  // Phase10-12: 旧セーブにレベル/持ち物/防御力・回復力ステータスが無い場合は補完
+  if(S.level===undefined)S.level=1;
+  if(S.lvExp===undefined)S.lvExp=0;
+  if(!Array.isArray(S.inventory))S.inventory=[];
+  if(!S.stats)S.stats={atk:0,hp:0,spd:0,def:0,regen:0};
+  if(S.stats.def===undefined)S.stats.def=0;
+  if(S.stats.regen===undefined)S.stats.regen=0;
   // Phase9: backfill Grammar Archive fields + pad words[] to 4 slots (noun,verb,adjective,adverb)
   (S.skills||[]).forEach(sk=>{
     if(sk.uses===undefined)sk.uses=1;

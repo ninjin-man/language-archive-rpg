@@ -21,6 +21,7 @@
     <div class="hs">🪙 <b id="hgold">0</b></div>
     <div class="hs">💪 <b id="hstat">0</b></div>
     <div class="hjob" id="hj">🌱 Novice</div>
+    <button class="hmenu-btn" onclick="openCharMenu()">☰ メニュー</button>
   </div>
 </div>
 <div id="nav">
@@ -134,6 +135,23 @@
   </div>
 </div>
 
+<!-- LEVEL UP (Phase12) -->
+<div id="lvup-ov">
+  <div class="lvup-card">
+    <div class="lvup-title">★レベルアップ★</div>
+    <div class="lvup-lv" id="lvup-lv">Lv 2</div>
+    <div id="lvup-gains"></div>
+  </div>
+</div>
+
+<!-- CHARACTER MENU: 持ち物・能力 (Phase10/11) -->
+<div id="char-menu-ov" class="evov">
+  <div class="evbox cm-box">
+    <div class="evtitle" id="cm-title">メニュー</div>
+    <div id="cm-body"></div>
+  </div>
+</div>
+
 <!-- CRAFT ANIM -->
 <div id="craft-anim">
   <div class="cab">
@@ -150,6 +168,7 @@
     <div class="dmhdr">
       <span class="dmt" id="dm-title">ダンジョン</span>
       <span class="dmf-info" id="dm-floor">B1F</span>
+      <button class="dmc" onclick="openCharMenu()">☰</button>
       <button class="dmc" onclick="closeDmap()">✕</button>
     </div>
     <div class="dm-vitals" id="dm-vitals">
@@ -180,6 +199,7 @@
             <div class="dm-dpad">
               <button class="dmb dmb-up" data-dmdir="up">▲</button>
               <button class="dmb dmb-left" data-dmdir="left">◀</button>
+              <button class="dmb dmb-wait" onclick="dmWait()" title="待機(Space)">⏸</button>
               <button class="dmb dmb-right" data-dmdir="right">▶</button>
               <button class="dmb dmb-down" data-dmdir="down">▼</button>
             </div>
@@ -246,6 +266,7 @@
 <script src="archive.js"></script>
 <script src="dungeon.js"></script>
 <script src="battle.js"></script>
+<script src="charmenu.js"></script>
 <script src="craft.js"></script>
 <script src="skills.js"></script>
 <script src="jobs.js"></script>

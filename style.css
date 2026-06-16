@@ -869,3 +869,47 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
   .dmb-act{width:48px;height:48px;font-size:18px}
   .dm-pad-row{gap:8px}
 }
+
+/* ════ Phase10-15: 持ち物・能力・レベルアップ・待機 (ローグライクコアループ) ════ */
+
+/* 常時表示メニューボタン(ヘッダー / ダンジョン内の2箇所から開く) */
+.hmenu-btn{background:var(--s4);border:1px solid var(--b1);border-radius:var(--rlg);
+  color:var(--t0);font-size:11px;font-weight:700;padding:6px 12px;cursor:pointer;
+  min-height:32px;white-space:nowrap;transition:all var(--ease)}
+.hmenu-btn:hover{border-color:var(--gold);color:var(--gold)}
+
+/* 待機ボタン(十字パッド中央) */
+.dm-dpad .dmb-wait{grid-column:2;grid-row:2;font-size:16px}
+
+/* メニュー(持ち物/能力)オーバーレイ — evov/evboxを再利用しテーマカラーのみ上書き */
+.cm-box{border-color:var(--gold-lo);min-width:260px}
+.inv-cap{font-size:11px;color:var(--t2);margin-bottom:10px;text-align:center;font-weight:700}
+.inv-list{display:flex;flex-direction:column;gap:8px;margin-bottom:12px}
+.inv-empty{font-size:12px;color:var(--t2);text-align:center;padding:14px 0}
+.inv-detail-desc{font-size:13px;color:var(--t1);text-align:center;margin-bottom:8px}
+.inv-detail-count{font-size:11px;color:var(--t2);text-align:center;margin-bottom:14px}
+.inv-detail-actions{display:flex;flex-direction:column;gap:8px}
+.cact.secondary{background:var(--s4);color:var(--t0);border:1px solid var(--b1)}
+.cact.secondary:hover{background:var(--s5);border-color:var(--t2)}
+.cm-back{width:100%;margin-top:4px;opacity:.8}
+.stat-lv{font-size:20px;font-weight:800;color:var(--gold-hi);text-align:center;margin-bottom:12px}
+.stat-row{display:flex;justify-content:space-between;font-size:13px;color:var(--t1);
+  padding:8px 4px;border-bottom:1px solid var(--b0)}
+.stat-row:last-of-type{border-bottom:none}
+
+/* フローティング表示: 回復(heal)カラー */
+.dmg-float.heal{color:var(--green)}
+
+/* レベルアップ演出(Phase12): モーダルではなく一定時間で自動的に消える非ブロッキング表示 */
+#lvup-ov{display:none;position:fixed;inset:0;z-index:920;
+  align-items:center;justify-content:center;pointer-events:none}
+#lvup-ov.show{display:flex}
+.lvup-card{background:linear-gradient(160deg,var(--s4),var(--s3));
+  border:2px solid var(--gold);border-radius:14px;padding:24px 36px;text-align:center;
+  box-shadow:0 0 70px rgba(200,168,75,.4),0 24px 60px rgba(0,0,0,.8);
+  animation:lvupin .4s cubic-bezier(.34,1.56,.64,1)}
+@keyframes lvupin{from{opacity:0;transform:scale(.6) translateY(16px)}to{opacity:1;transform:scale(1) translateY(0)}}
+.lvup-title{font-size:13px;letter-spacing:.15em;color:var(--gold);font-weight:800;margin-bottom:6px;
+  animation:pg 1s ease infinite alternate}
+.lvup-lv{font-size:30px;font-weight:800;color:var(--gold-hi);text-shadow:0 0 20px rgba(200,168,75,.6);margin-bottom:10px}
+.lvup-row{font-size:13px;color:var(--t0);font-weight:700;padding:2px 0}

@@ -134,6 +134,15 @@ function pickEnemyForFloor(floor){
   };
 }
 
+/* ════ ITEMS (Phase10: 持ち物システム) ════
+   type は将来のアーカイブ実装(weapon/archive等)を見据えた拡張可能な構造。
+   MVPでは consumable(消費アイテム)のみ実装。 */
+const ITEMS=[
+  {id:'herb',      type:'consumable', name:'Herb',       jp:'薬草',  desc:'HPを20回復する',icon:'🌿', effect:{hp:20}},
+  {id:'great_herb',type:'consumable', name:'Great Herb', jp:'上薬草', desc:'HPを50回復する',icon:'🍀', effect:{hp:50}},
+];
+function getItemDef(id){return ITEMS.find(i=>i.id===id)}
+
 /* ════ POS COMBO / 単語構文システム (Phase9) ════ */
 // スキル生成スロット定義 (Noun/Verb/Adjective/Adverb の4枠、空欄可)
 const SKILL_SLOTS=[
