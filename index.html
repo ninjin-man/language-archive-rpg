@@ -264,9 +264,7 @@
   // archive_v2プロトタイプ表示用(既存JSとは独立、ArchiveData等の名前空間に影響なし)
   function openArcV2() {
     var frame = document.getElementById('arcv2-frame');
-    if (!frame.src) {
-      frame.src = new URL('archive_v2/archive-prototype.html', document.baseURI).href;
-    }
+    frame.src = new URL('archive_v2/archive-prototype.html', document.baseURI).href;
     document.getElementById('arcv2-ov').style.display = 'block';
   }
   function closeArcV2() {
