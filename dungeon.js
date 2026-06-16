@@ -233,6 +233,8 @@ function loadFloor(f){
 
 // 不思議のダンジョン形式: 主人公中心のビューポート (VW x VH) をマップ側のオフセットで描画
 const VW=7,VH=7; // viewport size (odd: 中心セルが常にプレイヤー)
+const DM_LIGHT_FALLOFF=0.22; // 視界ライティング: 中心から離れるほど暗くなる係数
+const DM_LIGHT_MIN=0.35;     // 最低輝度(既踏破セルは完全に黒くしない)
 function dmRender(){
   const gc=document.getElementById('dm-grid');
   const fl=DM.floors[DM.floor];if(!fl)return;
@@ -265,11 +267,14 @@ function dmRender(){
     const t=g[my][mx];
     const cls=T[t]||'dfl';
     const ico=icons[t]||'';
-    html+=`<div class="dc ${cls}">${ico}</div>`;
+    // 視界ライティング: プレイヤーからの距離が遠い既踏破セルほど暗く表示
+    const dist=Math.sqrt((mx-p.x)**2+(my-p.y)**2);
+    const bright=Math.max(DM_LIGHT_MIN,1-dist*DM_LIGHT_FALLOFF).toFixed(2);
+    html+=`<div class="dc ${cls}" style="filter:brightness(${bright})">${ico}</div>`;
   }
   gc.innerHTML=html;
-  // デバッグ用ログ: プレイヤー位置・マップ総タイル数・オフセット
-  console.log(`[Dungeon] player=(${p.x},${p.y}) mapTiles=${GW*GH} offset=(${ox},${oy})`);
+  dmRenderMinimap();
+  dmUpdateHud();
   document.getElementById('dm-s').textContent=DM.steps;
   document.getElementById('dm-w').textContent=DM.wordsFound;
   // Action button state
@@ -287,6 +292,35 @@ function dmRender(){
     ab.style.background=DM.pending?'linear-gradient(180deg,#e8c96a,#c8a84b)':'';
     ab.style.color=DM.pending?'#04060c':'';
   }
+}
+
+// 全体俯瞰ミニマップ: 探索済みセルをドットで表示(画面左上に常設)
+function dmRenderMinimap(){
+  const mm=document.getElementById('dm-minimap');
+  if(!mm)return;
+  const fl=DM.floors[DM.floor];if(!fl)return;
+  const {grid:g,explored,playerPos:p}=fl;
+  let html='';
+  for(let y=0;y<GH;y++)for(let x=0;x<GW;x++){
+    let cls='dmm-fog';
+    if(x===p.x&&y===p.y)cls='dmm-player';
+    else if(explored.has(`${x},${y}`))cls=g[y][x]===CELL.WALL?'dmm-wall':'dmm-explored';
+    html+=`<div class="dmm ${cls}"></div>`;
+  }
+  mm.innerHTML=html;
+}
+
+// ダンジョン中も常時表示するHUD: 職業・EXP・所持品(語数/Gold/AP)を同期
+function dmUpdateHud(){
+  const j=JD.find(j=>j.id===S.job);
+  const jobEl=document.getElementById('dmh-job');
+  if(jobEl)jobEl.textContent=j?j.icon+' '+j.name:'🌱 Novice';
+  const pct=S.exp%100;
+  const ef=document.getElementById('dmh-ef');if(ef)ef.style.width=pct+'%';
+  const el=document.getElementById('dmh-el');if(el)el.textContent=`${pct}/100 EXP`;
+  const w=document.getElementById('dmh-w');if(w)w.textContent=nd();
+  const gld=document.getElementById('dmh-g');if(gld)gld.textContent=S.gold||0;
+  const ap=document.getElementById('dmh-ap');if(ap)ap.textContent=S.ap||0;
 }
 
 function dmLog(msg){
@@ -518,15 +552,49 @@ function dmHandleKeyup(e){
   dmInput.keysDown.delete(e.key);
   if(dmInput.activeDir===dir){
     dmStopRepeat();
-    // 他に押されているキーがあれば、その方向のリピートに切り替える
+    // 他に押されているキー/ボタンがあれば、その方向のリピートに切り替える
     for(const k of dmInput.keysDown){
-      const d=DM_KEY_DIR[k];
+      const d=k.startsWith('btn:')?k.slice(4):DM_KEY_DIR[k];
       if(d){dmStartRepeat(d);break}
     }
   }
 }
 window.addEventListener('keydown',dmHandleKeydown);
 window.addEventListener('keyup',dmHandleKeyup);
+
+/* ════ 方向ボタン: タッチ/ポインター長押しで連続入力 ════
+   キーボードと同じ keysDown / dmStartRepeat / dmStopRepeat を共有し、
+   ボタン押下は 'btn:up' のような専用キーで管理する */
+function dmBindDirButtons(){
+  document.querySelectorAll('.dmb[data-dmdir]').forEach(btn=>{
+    const dir=btn.getAttribute('data-dmdir');
+    const key=`btn:${dir}`;
+    const start=e=>{
+      e.preventDefault();
+      if(dmInput.keysDown.has(key))return;
+      dmInput.keysDown.add(key);
+      dmQueueMove(dir);
+      dmStartRepeat(dir);
+    };
+    const end=e=>{
+      e.preventDefault();
+      dmInput.keysDown.delete(key);
+      if(dmInput.activeDir===dir){
+        dmStopRepeat();
+        for(const k of dmInput.keysDown){
+          const d=k.startsWith('btn:')?k.slice(4):DM_KEY_DIR[k];
+          if(d){dmStartRepeat(d);break}
+        }
+      }
+    };
+    btn.addEventListener('pointerdown',start);
+    btn.addEventListener('pointerup',end);
+    btn.addEventListener('pointercancel',end);
+    btn.addEventListener('pointerleave',end);
+  });
+}
+document.addEventListener('DOMContentLoaded',dmBindDirButtons);
+
 // オーバーレイを閉じた際は入力状態をリセット
 const _origCloseDmap=closeDmap;
 closeDmap=function(){

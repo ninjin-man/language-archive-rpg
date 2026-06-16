@@ -316,6 +316,46 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 @keyframes ca{from{opacity:0;transform:scale(.4)}to{opacity:1;transform:scale(1)}}
 .cajp{font-size:13px;color:var(--t1);margin-top:5px;animation:ca .3s ease .9s both}
 
+/* HUD: 常時表示ステータス(職業・EXP・所持品) */
+.dm-hud{display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  padding:8px 16px;background:rgba(0,0,0,.25);border-bottom:1px solid var(--b0);
+  position:relative;z-index:1;font-size:11px;color:var(--t1)}
+.dm-hud-job{font-weight:700;color:var(--gold-hi);white-space:nowrap}
+.dm-hud-exp{flex:1;min-width:90px;display:flex;flex-direction:column;gap:2px}
+.dm-hud-expbar{height:5px;background:var(--s4);border-radius:3px;overflow:hidden;border:1px solid var(--b0)}
+.dm-hud-expfill{height:100%;width:0;background:linear-gradient(90deg,var(--amber),var(--gold-hi));
+  border-radius:3px;transition:width .4s ease}
+.dm-hud-expl{font-size:8px;color:var(--t2);letter-spacing:.05em}
+.dm-hud-chip{white-space:nowrap;font-weight:700;color:var(--t0)}
+
+/* 上部情報行: ミニマップ(左) + 深度ゲージ(右) */
+.dm-topinfo{display:flex;gap:10px;align-items:center;width:100%;max-width:340px}
+.dm-minimap-frame{flex-shrink:0;padding:4px;border-radius:6px;border:1px solid var(--b1);
+  background:var(--void);box-shadow:inset 0 0 10px rgba(0,0,0,.6)}
+.dm-minimap{display:grid;grid-template-columns:repeat(11,4px);grid-template-rows:repeat(11,4px);gap:1px}
+.dmm{width:4px;height:4px;border-radius:1px}
+.dmm-fog{background:transparent}
+.dmm-wall{background:#0d0f1a}
+.dmm-explored{background:var(--gold-lo)}
+.dmm-player{background:var(--cyan);box-shadow:0 0 3px var(--cyan)}
+.dm-floor-info{flex:1;display:flex;flex-direction:column;gap:4px}
+
+/* 十字パッド + 行動ボタン(円形)を画像同様に分離配置 */
+.dm-pad-row{display:flex;align-items:center;gap:16px}
+.dm-dpad{display:grid;grid-template-columns:34px 34px 34px;grid-template-rows:34px 34px 34px;gap:4px;
+  grid-template-areas:". up ." "left . right" ". down ."}
+.dm-dpad .dmb-up{grid-area:up}
+.dm-dpad .dmb-left{grid-area:left}
+.dm-dpad .dmb-right{grid-area:right}
+.dm-dpad .dmb-down{grid-area:down}
+.dmb-act{width:54px;height:54px;border-radius:50%;flex-shrink:0;
+  background:linear-gradient(180deg,var(--gold-hi),var(--gold));color:var(--void);
+  border:1px solid var(--gold);font-size:20px;font-weight:700;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 0 14px rgba(200,168,75,.35);transition:all var(--ease);
+  touch-action:none;user-select:none;-webkit-user-select:none}
+.dmb-act:hover{filter:brightness(1.08)}
+
 /* ── DUNGEON MAP — luxury redesign ── */
 .dmov{display:none;position:fixed;inset:0;z-index:800;
   align-items:center;justify-content:center;overflow:hidden;
@@ -382,24 +422,23 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .dfo{background:linear-gradient(160deg,#0c0e18,#070811);border:1px solid #14172a;opacity:.55}
 
 /* Floor depth gauge */
-.dm-floor-bar{height:5px;width:100%;max-width:340px;background:var(--s4);border-radius:3px;
+.dm-floor-bar{height:5px;width:100%;background:var(--s4);border-radius:3px;
   position:relative;overflow:hidden;border:1px solid var(--b0)}
 .dm-floor-fill{height:100%;background:linear-gradient(90deg,#7a4a10,var(--amber),var(--gold-hi));
   border-radius:3px;transition:width .5s ease;box-shadow:0 0 8px rgba(224,152,42,.5)}
-.dm-floor-label{font-size:9px;color:var(--t2);letter-spacing:.1em;text-transform:uppercase;text-align:center}
+.dm-floor-label{font-size:9px;color:var(--t2);letter-spacing:.1em;text-transform:uppercase;text-align:left}
 
 /* Lower section: controls (left) + console (right) */
 .dm-lower{display:flex;gap:12px;align-items:flex-start}
 .dm-controls{flex-shrink:0;display:flex;flex-direction:column;gap:6px}
-.dm-dir{display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;width:130px}
-.dmb{padding:9px 4px;border:1px solid var(--b1);border-radius:5px;
+.dmb{width:34px;height:34px;padding:0;border:1px solid var(--b1);border-radius:6px;
   background:linear-gradient(180deg,var(--s4),var(--s3));color:var(--t0);cursor:pointer;
-  font-size:13px;font-weight:700;transition:all var(--ease);text-align:center}
+  font-size:14px;font-weight:700;transition:all var(--ease);
+  display:flex;align-items:center;justify-content:center;
+  touch-action:none;user-select:none;-webkit-user-select:none}
 .dmb:hover{border-color:var(--gold);color:var(--gold);background:linear-gradient(180deg,var(--s5),var(--s4))}
-.dmb.act{background:linear-gradient(180deg,var(--gold-hi),var(--gold));color:var(--void);border-color:var(--gold);
-  box-shadow:0 0 14px rgba(200,168,75,.35);font-size:14px}
 .dmb:disabled{opacity:.3;cursor:not-allowed}
-.dm-cdr-label{font-size:8px;letter-spacing:.12em;text-transform:uppercase;color:var(--t2);text-align:center;margin-top:2px}
+.dm-cdr-label{font-size:8px;letter-spacing:.12em;text-transform:uppercase;color:var(--t2);text-align:center;margin-top:4px}
 
 /* Console (right) */
 .dm-console{flex:1;display:flex;flex-direction:column;gap:8px;min-width:0}
@@ -807,6 +846,11 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
   .dc{width:24px;height:24px;font-size:10px}
   .dmbody{padding:10px}
   .dm-grid-frame{padding:6px}
+  .dm-hud{padding:6px 10px;gap:6px;font-size:10px}
+  .dm-pad-row{gap:10px}
+  .dmb{width:30px;height:30px;font-size:12px}
+  .dm-dpad{grid-template-columns:30px 30px 30px;grid-template-rows:30px 30px 30px}
+  .dmb-act{width:46px;height:46px;font-size:18px}
 }
 
 @media(max-width:340px){

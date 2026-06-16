@@ -152,26 +152,39 @@
       <span class="dmf-info" id="dm-floor">B1F</span>
       <button class="dmc" onclick="closeDmap()">✕</button>
     </div>
+    <div class="dm-hud" id="dm-hud">
+      <span class="dm-hud-job" id="dmh-job">🌱 Novice</span>
+      <div class="dm-hud-exp">
+        <div class="dm-hud-expbar"><div class="dm-hud-expfill" id="dmh-ef"></div></div>
+        <span class="dm-hud-expl" id="dmh-el">0/100 EXP</span>
+      </div>
+      <span class="dm-hud-chip">📖 <b id="dmh-w">0</b></span>
+      <span class="dm-hud-chip">🪙 <b id="dmh-g">0</b></span>
+      <span class="dm-hud-chip">💠 <b id="dmh-ap">0</b></span>
+    </div>
     <div class="dmbody">
       <div class="dm-grid-area">
+        <div class="dm-topinfo">
+          <div class="dm-minimap-frame"><div class="dm-minimap" id="dm-minimap"></div></div>
+          <div class="dm-floor-info">
+            <div class="dm-floor-bar"><div class="dm-floor-fill" id="dm-floor-fill" style="width:10%"></div></div>
+            <div class="dm-floor-label" id="dm-floor-label">深度 1F / 10F</div>
+          </div>
+        </div>
         <div class="dm-grid-frame">
           <div class="dm-grid" id="dm-grid"></div>
         </div>
-        <div class="dm-floor-bar"><div class="dm-floor-fill" id="dm-floor-fill" style="width:10%"></div></div>
-        <div class="dm-floor-label" id="dm-floor-label">深度 1F / 10F</div>
       </div>
       <div class="dm-lower">
         <div class="dm-controls">
-          <div class="dm-dir">
-            <div></div>
-            <button class="dmb" onclick="dmv('up')">▲</button>
-            <div></div>
-            <button class="dmb" onclick="dmv('left')">◀</button>
-            <button class="dmb act" id="dm-act" onclick="dma()">⚔</button>
-            <button class="dmb" onclick="dmv('right')">▶</button>
-            <div></div>
-            <button class="dmb" onclick="dmv('down')">▼</button>
-            <div></div>
+          <div class="dm-pad-row">
+            <div class="dm-dpad">
+              <button class="dmb dmb-up" data-dmdir="up">▲</button>
+              <button class="dmb dmb-left" data-dmdir="left">◀</button>
+              <button class="dmb dmb-right" data-dmdir="right">▶</button>
+              <button class="dmb dmb-down" data-dmdir="down">▼</button>
+            </div>
+            <button class="dmb-act" id="dm-act" onclick="dma()">⚔</button>
           </div>
           <div class="dm-cdr-label">移動 / 行動</div>
         </div>
