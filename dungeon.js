@@ -233,7 +233,7 @@ function loadFloor(f){
 // 不思議のダンジョン形式: 主人公中心のビューポート (VW x VH) をマップ側のオフセットで描画
 const VW=7,VH=7; // viewport size (odd: 中心セルが常にプレイヤー)
 const DM_LIGHT_FALLOFF=0.22; // 視界ライティング: 中心から離れるほど暗くなる係数
-const DM_LIGHT_MIN=0.35;     // 最低輝度(既踏破セルは完全に黒くしない)
+const DM_LIGHT_MIN=0.5;      // 最低輝度(既踏破セルでも床と壁の判別を保つ)
 function dmRender(){
   const gc=document.getElementById('dm-grid');
   const fl=DM.floors[DM.floor];if(!fl)return;
@@ -375,13 +375,16 @@ function dmv(dir){
   let msg='';
   if(dest===CELL.CHEST){
     msg='🎁 宝箱を発見！';DM.pending='chest';g[ny][nx]=CELL.PLAYER;
+    setTimeout(()=>{if(DM.pending==='chest')dmResolvePending()},500);
   }else if(dest===CELL.CHEST_GOLD){
     g[ny][nx]=CELL.PLAYER;
     msg=openGoldChest();
   }else if(dest===CELL.EVENT){
     msg='❓ 古い石碑を見つけた…';DM.pending='event_choice';g[ny][nx]=CELL.PLAYER;
+    setTimeout(()=>{if(DM.pending==='event_choice')dmResolvePending()},500);
   }else if(dest===CELL.ENEMY){
     msg=`👾 敵が現れた！ (B${DM.floor}F)`;DM.pending='enemy';g[ny][nx]=CELL.PLAYER;
+    setTimeout(()=>{if(DM.pending==='enemy')dmResolvePending()},500);
   }else if(dest===CELL.EXIT){
     if(DM.floor===DM.maxFloor){
       msg='🏆 最深部の出口！ダンジョン完全制覇！';g[ny][nx]=CELL.PLAYER;
@@ -407,6 +410,11 @@ function dmv(dir){
 }
 
 function dma(){
+  dmResolvePending();
+}
+
+// 宝箱・イベント・敵の保留状態を解決する(自動進行・手動ボタン共通処理)
+function dmResolvePending(){
   if(!DM.pending)return;
   if(DM.pending==='event_choice'){
     showEventChoice();
