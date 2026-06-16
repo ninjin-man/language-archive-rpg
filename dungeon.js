@@ -223,7 +223,6 @@ function loadFloor(f){
   if(!DM.floors[f])generateFloor(f);
   DM.floor=f;DM.pending=null;
   document.getElementById('dm-floor').textContent=`B${f}F`;
-  document.getElementById('dm-f').textContent=`B${f}F`;
   dmLog(`B${f}F に到着した。`);
   const bar=document.getElementById('dm-floor-fill');
   if(bar)bar.style.width=Math.round(f/DM.maxFloor*100)+'%';
@@ -239,7 +238,7 @@ function dmRender(){
   const gc=document.getElementById('dm-grid');
   const fl=DM.floors[DM.floor];if(!fl)return;
   const {grid:g,explored,playerPos:p}=fl;
-  gc.style.gridTemplateColumns=`repeat(${VW},27px)`;
+  gc.style.gridTemplateColumns=`repeat(${VW},44px)`;
   let html='';
   const T={
     [CELL.WALL]:'dwa',
@@ -275,8 +274,6 @@ function dmRender(){
   gc.innerHTML=html;
   dmRenderMinimap();
   dmUpdateHud();
-  document.getElementById('dm-s').textContent=DM.steps;
-  document.getElementById('dm-w').textContent=DM.wordsFound;
   // Action button state
   const ab=document.getElementById('dm-act');
   if(DM.pending==='event_choice'){
