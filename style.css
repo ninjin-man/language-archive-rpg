@@ -327,6 +327,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
   border-radius:3px;transition:width .4s ease}
 .dm-hud-expl{font-size:8px;color:var(--t2);letter-spacing:.05em}
 .dm-hud-chip{white-space:nowrap;font-weight:700;color:var(--t0)}
+.dm-hud-gem{color:var(--cyan)}
 
 /* HPバー(常時表示, MVPローグライク化アップデート) */
 .dm-vitals{display:flex;align-items:center;gap:8px;padding:6px 16px 0;font-size:11px;color:var(--t1)}
@@ -405,10 +406,17 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
   border:1px solid var(--b1);
   box-shadow:inset 0 0 30px rgba(0,0,0,.6);
 }
-.dm-grid{display:grid;gap:2px;grid-template-columns:repeat(17,24px)}
+.dm-grid{display:grid;gap:2px;grid-template-columns:repeat(13,24px)}
 .dc{width:24px;height:24px;border-radius:4px;display:flex;align-items:center;justify-content:center;
   font-size:10px;transition:all .25s ease;position:relative;overflow:hidden}
-.player-icon{width:100%;height:100%;max-width:24px;max-height:24px;object-fit:contain;display:block}
+/* Phase24: スプライトシート(assets/sprites/player_sheet.png, 6列×4行)から該当フレームを
+   背景として切り出して表示する。background-positionはJS(spritePos)が動的に書き換える。
+   画像未配置時はbackground-colorのフォールバックで崩れないようにしている。 */
+.player-sprite{width:100%;height:100%;display:block;
+  background-image:url('assets/sprites/player_sheet.png');
+  background-repeat:no-repeat;background-size:600% 400%;
+  background-color:rgba(77,200,224,.25);border-radius:3px;
+  image-rendering:pixelated}
 /* Phase22: 敵HPバー(セル上部の細いバー) */
 .ehp{position:absolute;top:1px;left:10%;width:80%;height:3px;background:rgba(0,0,0,.55);border-radius:2px;overflow:hidden;z-index:2}
 .ehp-fill{height:100%;background:linear-gradient(90deg,#ff6a6a,#ff9a4a);transition:width .2s ease}
@@ -423,8 +431,14 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
   0%{opacity:1;transform:translate(-50%,0)}
   100%{opacity:0;transform:translate(-50%,-28px)}
 }
-.dfl{background:linear-gradient(160deg,#454d6e,#363c58);border:1px solid var(--b2)}
-.dwa{background:linear-gradient(160deg,#0a0c16,#04050a);border:1px solid #15182a}
+/* Phase24: タイルセット化(DOM+CSS方式)。background-imageでタイル画像を表示し、
+   画像が未配置/読込失敗の間は元の単色グラデーションがそのままフォールバックとして見える。
+   将来「石床/レンガ床/古代遺跡床」等を増やす場合は、セルのdata属性等でクラスを分岐させる拡張を想定。 */
+.dfl{background:linear-gradient(160deg,#454d6e,#363c58),url('assets/tiles/floor.png') center/cover;
+  border:1px solid var(--b2)}
+.dwa{background:linear-gradient(rgba(15,25,60,.55),rgba(15,25,60,.55)),
+    linear-gradient(160deg,#0a0c16,#04050a),url('assets/tiles/wall.png') center/cover;
+  border:1px solid #15182a}
 .dpl{background:radial-gradient(circle,rgba(77,200,224,.5),rgba(30,80,144,.5));border:1.5px solid var(--cyan);
   animation:pp 1s ease infinite alternate;box-shadow:0 0 10px rgba(77,200,224,.4)}
 @keyframes pp{from{box-shadow:0 0 6px rgba(77,200,224,.3)}to{box-shadow:0 0 16px rgba(77,200,224,.8)}}
@@ -439,9 +453,11 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .den{background:radial-gradient(circle,rgba(224,92,122,.4),rgba(192,64,64,.12));border:1px solid var(--rose);
   animation:ep 1s ease infinite alternate}
 @keyframes ep{from{box-shadow:0 0 6px rgba(224,92,122,.25)}to{box-shadow:0 0 16px rgba(224,92,122,.7)}}
-.dst2{background:radial-gradient(circle,rgba(224,152,42,.35),rgba(224,152,42,.08));border:1px solid var(--amber);
+.dst2{background:radial-gradient(circle,rgba(224,152,42,.35),rgba(224,152,42,.08)),
+    url('assets/tiles/stairs.png') center/cover;border:1px solid var(--amber);
   box-shadow:0 0 8px rgba(224,152,42,.25)}
-.dstu{background:radial-gradient(circle,rgba(77,200,224,.3),rgba(77,200,224,.08));border:1px solid var(--cyan);
+.dstu{background:radial-gradient(circle,rgba(77,200,224,.3),rgba(77,200,224,.08)),
+    url('assets/tiles/stairs.png') center/cover;border:1px solid var(--cyan);
   box-shadow:0 0 8px rgba(77,200,224,.2)}
 .dfo{background:linear-gradient(160deg,#0c0e18,#070811);border:1px solid #14172a;opacity:.55}
 
@@ -850,30 +866,52 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
   #toasts{bottom:calc(12px + var(--sab));max-width:calc(100vw - 24px)}
   .toast{white-space:normal;font-size:13px;max-width:100%;text-align:center}
 
-  /* ── Dungeon map modal ── */
-  .dmbox{width:100%;max-width:100%}
-  .dmbody{padding:10px}
-  .dm-grid-frame{padding:6px}
-  .dm-hud{padding:6px 10px;gap:6px;font-size:10px}
-  .dm-vitals{padding:6px 10px 0;gap:6px}
-  .dm-hpbar2{max-width:140px}
-  .dm-pad-row{gap:12px}
-  /* 17x17ビューポート(Phase20.5: マップ表示範囲拡張)が幅390px程度の端末でも収まるようセル・gapを縮小 */
-  .dc{width:18px;height:18px;font-size:8px}
-  .player-icon{max-width:18px;max-height:18px}
-  .dm-grid{grid-template-columns:repeat(17,18px);gap:1px}
+  /* ── Dungeon map modal: UI改善(マップ表示最大化) ──
+     方針: 情報量を減らしてでもマップ(grid-frame)の表示面積を最大化する。
+     dmbox を全画面化し、上部UI(ヘッダー/HP/HUD)を圧縮、残りの高さを
+     dm-grid-area(flex:1)に全部渡すことで画面高さの大半をマップへ割り当てる。 */
+  .dmov{padding:0}
+  .dmbox{width:100%;max-width:100%;height:100vh;height:100dvh;border-radius:0;
+    display:flex;flex-direction:column}
+  .dmhdr{padding:5px 10px;flex:0 0 auto}
+  .dmt{font-size:12px}
+  .dmf-info{font-size:9px;padding:2px 6px}
+  .dm-vitals{padding:3px 10px 0;gap:6px;flex:0 0 auto}
+  .dm-vital-label{font-size:9px}
+  .dm-hpbar2{height:6px;max-width:120px}
+  .dm-hptxt2{font-size:9px}
+  .dm-hud{padding:4px 10px;gap:5px;font-size:9px;flex:0 0 auto}
+  .dmbody{padding:6px;gap:5px;flex:1;display:flex;flex-direction:column;min-height:0;overflow:hidden}
+  .dm-grid-area{flex:1;min-height:0;width:100%;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;gap:4px}
+  .dm-grid-frame{flex:1;min-height:0;width:100%;padding:4px;
+    display:flex;align-items:center;justify-content:center;overflow:hidden}
+  /* 13x13ビューポート(UI改善: マップ最大化、17→13)。セルは固定pxをやめてグリッドトラックに
+     フィットさせ、aspect-ratioで幅基準の正方形にすることで画面幅いっぱいまで自動拡大する */
+  .dm-grid{grid-template-columns:repeat(13,1fr);grid-template-rows:repeat(13,1fr);gap:1px;
+    width:100%;max-width:100%;aspect-ratio:1/1}
+  .dc{width:100%;height:100%;font-size:9px}
+  /* ミニマップ: 半分サイズ(視認性より広さを優先) */
+  .dm-minimap-frame{padding:3px}
+  .dm-minimap{grid-template-columns:repeat(24,1px);grid-template-rows:repeat(24,1px);gap:0}
+  .dmm{width:1px;height:1px;border-radius:0}
+  /* 操作ボタン間の余白を削減 */
+  .dm-lower{gap:6px}
+  .dm-pad-row{gap:8px}
+  .dm-dpad{gap:3px}
+  .dm-controls{gap:4px}
+  /* ログ: 1行表示(最新メッセージのみ見せる) */
+  .dm-log{max-height:16px;overflow:hidden}
 }
 
 @media(max-width:340px){
   .hdr-r .hs:nth-child(n+4){display:none} /* 極小幅では二次的なステータスを省略 */
   .csls.sk4{grid-template-columns:1fr}
-  .dc{width:14px;height:14px;font-size:6px}
-  .player-icon{max-width:14px;max-height:14px}
-  .dm-grid{grid-template-columns:repeat(17,14px);gap:1px}
+  .dc{font-size:7px}
   .dmb{width:40px;height:40px;font-size:15px}
   .dm-dpad{grid-template-columns:40px 40px 40px;grid-template-rows:40px 40px 40px;gap:4px}
   .dmb-act{width:48px;height:48px;font-size:18px}
-  .dm-pad-row{gap:8px}
+  .dm-pad-row{gap:6px}
 }
 
 /* ════ Phase10-15: 持ち物・能力・レベルアップ・待機 (ローグライクコアループ) ════ */

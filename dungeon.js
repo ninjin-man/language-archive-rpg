@@ -95,6 +95,23 @@ function pickBonusWord(pool,floor){
   return weighted[Math.floor(Math.random()*weighted.length)];
 }
 
+/* ════ 脱出の宝玉 (Phase24: 脱出マス廃止に伴う新システム) ════
+   塔から脱出する力を持つ宝玉。一定階層への初到達時に自動獲得し、永続所持する(売却不可・使用不可)。
+   ✕ボタン(closeDmap)で撤退する際、1個消費して安全に脱出できる。
+   所持数0で撤退するとペナルティ付きの強制脱出になる(closeDmap内で判定)。 */
+const ESCAPE_GEM_FLOORS=[5,10,15,20];
+function checkEscapeGemAward(f){
+  if(!ESCAPE_GEM_FLOORS.includes(f))return;
+  DM.gemFloorsAwarded=DM.gemFloorsAwarded||new Set();
+  if(DM.gemFloorsAwarded.has(f))return; // このラン中に既に獲得済みの階層は再付与しない
+  DM.gemFloorsAwarded.add(f);
+  S.escapeGems=(S.escapeGems||0)+1;save();
+  const msg=`◇ 脱出の宝玉を手に入れた！(B${f}F到達、所持${S.escapeGems}個)`;
+  dmLog(msg);
+  toast(`◇ 脱出の宝玉 +1 (所持${S.escapeGems}個)`,'gr');
+  dmUpdateHud();
+}
+
 let DM={
   dungeon:null,
   floor:1,   // current floor (1-20, Phase7)
@@ -107,14 +124,15 @@ let DM={
   pending:null,  // 'chest'|'event_choice'  (改修: 'enemy'はモーダル戦闘廃止により不要)
   playerHp:0,    // ダンジョン1回の探索を通じて持続するHP(MVPローグライク化アップデート)
   playerMaxHp:0,
-  battleDiscoverBonus:0 // per-run discover bonus from battle wins (Phase8 item7)
+  battleDiscoverBonus:0, // per-run discover bonus from battle wins (Phase8 item7)
+  anim:{dir:'down',frame:'idle'} // Phase24: プレイヤースプライトの向き・現在フレーム
 };
 
 function openDmap(id){
   const d=DD.find(d=>d.id===id);if(!d)return;
   const maxHp=getPlayerMaxHp();
   DM={dungeon:d,floor:1,maxFloor:20,floors:{},steps:0,wordsFound:0,kills:0,log:[],pending:null,
-      playerHp:maxHp,playerMaxHp:maxHp,battleDiscoverBonus:0};
+      playerHp:maxHp,playerMaxHp:maxHp,battleDiscoverBonus:0,anim:{dir:'down',frame:'idle'}};
   document.getElementById('dm-title').textContent=d.name;
   document.getElementById('dmov').classList.add('show');
   // Phase7: ダンジョン記録 — 総探索回数をカウント
@@ -125,7 +143,8 @@ function openDmap(id){
   loadFloor(1);
   dmRender();
 }
-function closeDmap(){
+function closeDmap(reason){
+  reason=reason||'manual'; // 'manual'(✕ボタン撤退) | 'death'(HP0帰還) | 'clear'(最深部到達)
   document.getElementById('dmov').classList.remove('show');
   document.getElementById('event-ov')?.classList.remove('show');
   document.getElementById('stairs-ov')?.classList.remove('show');
@@ -134,6 +153,17 @@ function closeDmap(){
   if(DM.dungeon){
     S.dungeonRecords=S.dungeonRecords||{maxFloor:0,totalRuns:0,kills:0};
     if(DM.floor>S.dungeonRecords.maxFloor)S.dungeonRecords.maxFloor=DM.floor;
+    // Phase24: 脱出の宝玉判定 — 自発的撤退のみ対象(死亡帰還・最深部到達は対象外)
+    if(reason==='manual'){
+      if((S.escapeGems||0)>0){
+        S.escapeGems--;
+        toast(`◇ 脱出の宝玉を使って撤退した(残り${S.escapeGems}個)`,'gr');
+      }else{
+        const lost=Math.floor((S.gold||0)*0.3);
+        S.gold=Math.max(0,(S.gold||0)-lost);
+        toast(lost>0?`脱出の宝玉が無く、Gold ${lost} を落として強行脱出した…`:'脱出の宝玉が無いまま脱出した…','g');
+      }
+    }
     save();
   }
   renderExp();
@@ -286,9 +316,8 @@ function generateFloor(f){
   if(f>1){
     stairsUpPos=placeInRoom(pickWeightedRoom(stairsDownRoom),CELL.STAIRS_UP);
   }
-  // Exit: floor 1 = retreat to town, floor 20 = final dungeon clear (Phase7)
-  // (退却用の出口は通路上でも問題ないため、既存の防御的place()のままでよい)
-  if(f===1||f===DM.maxFloor){place(CELL.EXIT)}
+  // Exit: 廃止(Phase24)。撤退は✕ボタン(closeDmap)に統合し、脱出の宝玉システムで管理する。
+  // if(f===1||f===DM.maxFloor){place(CELL.EXIT)}
 
   // ── Phase18: アイテム生成ルール改善 ──
   // アイテムは部屋限定・通路には出現しない。階層が深いほど多くの部屋に生成(探索価値を底上げ)。
@@ -387,6 +416,12 @@ function loadFloor(f){
   document.getElementById('dm-floor').textContent=`B${f}F`;
   dmLog(`B${f}F に到着した。`);
   showFloorFlash(f); // Phase22: 階段演出
+  checkEscapeGemAward(f); // Phase24: 階層到達ボーナス(脱出の宝玉)
+  if(f===DM.maxFloor){
+    // Phase24: 脱出マス廃止に伴い、最深部到達=即クリアとする
+    dmLog('🏆 最深部に到達した！ダンジョン完全制覇！');
+    setTimeout(()=>{closeDmap('clear');toast('🏆 全20階クリア！完全制覇！','gr')},900);
+  }
 }
 // Phase22: 階層移動時に画面中央へ「B{N}F」を表示してフェードアウトさせる
 function showFloorFlash(f){
@@ -408,9 +443,58 @@ function showRareFind(){
 
 // 不思議のダンジョン形式: 主人公中心のビューポート (VW x VH) をマップ側のオフセットで描画
 // 改修(MVPローグライク化・マップ拡大): 7x7→9x9 に拡大し、不要UI削減で生まれた領域も活用
-const VW=17,VH=17; // viewport size (odd: 中心セルが常にプレイヤー) — Phase20.5: 9→17 表示範囲拡張
+const VW=13,VH=13; // viewport size (odd: 中心セルが常にプレイヤー) — UI改善(マップ表示最大化): 17→13、セルを大きく見せて画面占有率を上げる
 const DM_LIGHT_FALLOFF=0.22; // 視界ライティング: 中心から離れるほど暗くなる係数
 const DM_LIGHT_MIN=0.5;      // 最低輝度(既踏破セルでも床と壁の判別を保つ)
+
+/* ════ Phase24: プレイヤースプライトシート(player_sheet.png) ════
+   1枚画像 6列(フレーム)×4行(方向)。列: idle,walk1,walk2,walk3,walk4,attack / 行: down,up,left,right
+   画像未配置でも壊れないよう、CSS側で.player-spriteに単色のフォールバック背景を用意している。 */
+const SPRITE_COLS=6,SPRITE_ROWS=4;
+const SPRITE_DIR_ROW={down:0,up:1,left:2,right:3};
+const SPRITE_FRAME_COL={idle:0,walk1:1,walk2:2,walk3:3,walk4:4,attack:5};
+function spritePos(dir,frame){
+  const col=SPRITE_FRAME_COL[frame]??0;
+  const row=SPRITE_DIR_ROW[dir]??0;
+  const x=col/(SPRITE_COLS-1)*100;
+  const y=row/(SPRITE_ROWS-1)*100;
+  return `${x}% ${y}%`;
+}
+// dmRenderでグリッド全体を再構築せず、プレイヤーアイコンの背景位置だけを書き換える(アニメーション再生用の軽量更新)
+function dmUpdatePlayerSprite(){
+  const el=document.querySelector('#dm-grid .player-sprite');
+  if(el)el.style.backgroundPosition=spritePos(DM.anim.dir,DM.anim.frame);
+}
+let _dmWalkTimer=null;
+const DM_WALK_FRAMES=['walk1','walk2','walk3','walk4'];
+const DM_WALK_FRAME_MS=90;
+function dmPlayWalkAnim(dir){
+  DM.anim.dir=dir;
+  if(_dmWalkTimer){clearInterval(_dmWalkTimer);_dmWalkTimer=null}
+  let i=0;
+  DM.anim.frame=DM_WALK_FRAMES[0];
+  _dmWalkTimer=setInterval(()=>{
+    i++;
+    if(i>=DM_WALK_FRAMES.length){
+      clearInterval(_dmWalkTimer);_dmWalkTimer=null;
+      DM.anim.frame='idle';
+    }else{
+      DM.anim.frame=DM_WALK_FRAMES[i];
+    }
+    dmUpdatePlayerSprite();
+  },DM_WALK_FRAME_MS);
+}
+const DM_ATTACK_ANIM_MS=220;
+function dmPlayAttackAnim(dir){
+  DM.anim.dir=dir;
+  if(_dmWalkTimer){clearInterval(_dmWalkTimer);_dmWalkTimer=null}
+  DM.anim.frame='attack';
+  dmUpdatePlayerSprite();
+  setTimeout(()=>{
+    if(DM.anim.frame==='attack')DM.anim.frame='idle';
+    dmUpdatePlayerSprite();
+  },DM_ATTACK_ANIM_MS);
+}
 function dmRender(){
   const gc=document.getElementById('dm-grid');
   const fl=DM.floors[DM.floor];if(!fl)return;
@@ -427,7 +511,7 @@ function dmRender(){
     [CELL.STAIRS_DOWN]:'dst2',
     [CELL.STAIRS_UP]:'dstu',
   };
-  const icons={[CELL.PLAYER]:'<img src="assets/player.png" class="player-icon">',[CELL.CHEST]:'🎁',[CELL.CHEST_GOLD]:'💰',[CELL.EVENT]:'❓',[CELL.EXIT]:'🚪',[CELL.STAIRS_DOWN]:'↓',[CELL.STAIRS_UP]:'↑'};
+  const icons={[CELL.PLAYER]:`<div class="player-sprite" style="background-position:${spritePos(DM.anim.dir,DM.anim.frame)}"></div>`,[CELL.CHEST]:'🎁',[CELL.CHEST_GOLD]:'💰',[CELL.EVENT]:'❓',[CELL.EXIT]:'🚪',[CELL.STAIRS_DOWN]:'↓',[CELL.STAIRS_UP]:'↑'};
   // 改修(MVPローグライク化): 敵は静的セルではなく動的エンティティとして座標上に重ねて描画する
   const enemyAt={};
   (enemies||[]).forEach(e=>{if(e.curHp>0)enemyAt[`${e.x},${e.y}`]=e});
@@ -528,6 +612,7 @@ function dmUpdateHud(){
   const gld=document.getElementById('dmh-g');if(gld)gld.textContent=S.gold||0;
   const ap=document.getElementById('dmh-ap');if(ap)ap.textContent=S.ap||0;
   const inv=document.getElementById('dmh-inv');if(inv)inv.textContent=`${(S.inventory||[]).length}/${INV_MAX_SLOTS}`;
+  const gem=document.getElementById('dmh-gem');if(gem)gem.textContent=S.escapeGems||0;
   // HPバー(MVPローグライク化アップデート: 常時表示)
   const hpFill=document.getElementById('dm-hpfill2');
   const hpTxt=document.getElementById('dm-hptxt2');
@@ -583,6 +668,7 @@ function dmv(dir){
   if(ny<0||ny>=GH||nx<0||nx>=GW)return;
   const dest=g[ny][nx];
   if(dest===CELL.WALL)return;
+  DM.anim.dir=dir; // Phase24: 移動・攻撃どちらでも向きを更新
   // 接触攻撃(MVPローグライク化): 移動先に生存中の敵がいれば、移動せず即攻撃してターンを消費する
   const enemyHere=(fl.enemies||[]).find(e=>e.curHp>0&&e.x===nx&&e.y===ny);
   if(enemyHere){
@@ -617,14 +703,6 @@ function dmv(dir){
   }else if(dest===CELL.EVENT){
     msg='❓ 古い石碑を見つけた…';DM.pending='event_choice';g[ny][nx]=CELL.PLAYER;
     setTimeout(()=>{if(DM.pending==='event_choice')dmResolvePending()},500);
-  }else if(dest===CELL.EXIT){
-    if(DM.floor===DM.maxFloor){
-      msg='🏆 最深部の出口！ダンジョン完全制覇！';g[ny][nx]=CELL.PLAYER;
-      setTimeout(()=>{closeDmap();toast('🏆 全20階クリア！完全制覇！','g')},700);
-    } else {
-      msg='🚪 入口に戻る…';g[ny][nx]=CELL.PLAYER;
-      setTimeout(()=>{closeDmap();toast(`B${DM.floor}Fまで到達して撤退`,'g')},600);
-    }
   }else if(dest===CELL.STAIRS_DOWN){
     msg='↓ 下り階段を見つけた。';DM.pending='stairs_down';g[ny][nx]=CELL.PLAYER;
     setTimeout(()=>{if(DM.pending==='stairs_down')openStairsConfirm('down')},300);
@@ -635,6 +713,7 @@ function dmv(dir){
     g[ny][nx]=CELL.PLAYER;
   }
   if(msg){document.getElementById('dm-msg').textContent=msg;dmLog(msg)}
+  dmPlayWalkAnim(dir); // Phase24: 歩行アニメーション(walk1→4を再生してidleに戻る)
   dmRender();
   // 敵ターン制(MVPローグライク化): 移動も1ターンとして扱い、敵全体を行動させる
   dmEnemyTurn();
@@ -652,6 +731,7 @@ const DM_DETECT_RANGE=5; // 索敵範囲(マス, Chebyshev距離)
 
 // 敵に接触攻撃を行い、結果をフローティングダメージ・ログで即時表示する(モーダル禁止)
 function dmContactAttack(enemy,dir){
+  dmPlayAttackAnim(dir); // Phase24: 攻撃アニメーション(短時間attackフレーム表示)
   const playerAtk=getPlayerAtk();
   const dmg=Math.max(1,playerAtk-(enemy.def||0));
   enemy.curHp-=dmg;
@@ -852,7 +932,7 @@ function dmShowFloatDamage(vx,vy,amount,kind){
 // プレイヤーのHPが0になった際の処理: ダンジョンから帰還する(獲得済みアーカイブ/Gold等は保持)
 function dmPlayerDown(){
   toast('💀 倒れてしまった…ダンジョンから帰還した','g');
-  closeDmap();
+  closeDmap('death');
 }
 
 // 宝箱・イベントの保留状態を解決する(自動進行・手動ボタン共通処理)
@@ -1092,9 +1172,9 @@ document.addEventListener('DOMContentLoaded',dmBindDirButtons);
 
 // オーバーレイを閉じた際は入力状態をリセット
 const _origCloseDmap=closeDmap;
-closeDmap=function(){
+closeDmap=function(reason){
   dmInput.keysDown.clear();
   dmInput.queue.length=0;
   dmStopRepeat();
-  _origCloseDmap();
+  _origCloseDmap(reason);
 };
