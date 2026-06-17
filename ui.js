@@ -150,6 +150,9 @@ function updateHdr(){
     hstat.textContent=statTotal;
     hstat.parentElement.title=`ATK ${st.atk||0} / HP ${st.hp||0} / SPD ${st.spd||0}`;
   }
+  // Phase16: 持ち物の所持数(常時表示)
+  const hinv=document.getElementById('h-inv');
+  if(hinv)hinv.textContent=`${(S.inventory||[]).length}/${INV_MAX_SLOTS}`;
   const j=JD.find(j=>j.id===S.job);
   document.getElementById('hj').textContent=j?j.icon+' '+j.name:'🌱 Novice';
   const pct=S.exp%100;

@@ -1,31 +1,44 @@
-/* ════ 持ち物・能力・レベルアップ (Phase10-13: ローグライクコアループ) ════
+/* ════ 持ち物・能力・レベルアップ (Phase10-16: ローグライクコアループ) ════
    メニューは画面右上に常時表示(ヘッダー内 & ダンジョン内の2箇所から開ける、同じUIを共有)。
    「探索 → 戦闘 → 回復 → 成長 → 次の探索」のループを構成する中核システム。 */
-const INV_MAX_SLOTS=20;
+const INV_MAX_SLOTS=20; // 所持枠: 20固定(Phase16)
+const STACK_MAX=10;     // スタック上限: 同種10個まで1枠(Phase16)
 
-/* ── 持ち物データ操作 ── */
+/* ── 持ち物データ操作 ──
+   同じアイテムでもスタック上限(10)を超えると別スロットに分かれる(例: 薬草×10 + 薬草×5 = 2枠)。
+   そのため以降の使用/設置はid指定ではなく「どのスロットか(配列インデックス)」で個別に扱う。 */
 function addItem(id,n=1){
   if(!Array.isArray(S.inventory))S.inventory=[];
-  const slot=S.inventory.find(s=>s.id===id);
-  if(slot){slot.count+=n;save();return true}
-  if(S.inventory.length>=INV_MAX_SLOTS)return false; // 持ち物がいっぱい
-  S.inventory.push({id,count:n});save();return true;
+  // 既存スタックに空きがあれば詰める
+  const slot=S.inventory.find(s=>s.id===id&&s.count<STACK_MAX);
+  if(slot){
+    const add=Math.min(STACK_MAX-slot.count,n);
+    slot.count+=add;n-=add;
+  }
+  if(n<=0){save();return true}
+  // 新規スロットが必要だが空きが無い(Phase16: 所持がいっぱい)
+  if(S.inventory.length>=INV_MAX_SLOTS)return false;
+  S.inventory.push({id,count:Math.min(STACK_MAX,n)});
+  save();return true;
 }
-function removeItem(id,n=1){
-  const slot=(S.inventory||[]).find(s=>s.id===id);
-  if(!slot)return;
-  slot.count-=n;
-  if(slot.count<=0)S.inventory=S.inventory.filter(s=>s!==slot);
+// スロット(配列インデックス)を直接操作して取り除く。countを省略すると丸ごと取り除く(置く用)
+function removeItemAt(idx,n){
+  const slot=S.inventory[idx];
+  if(!slot)return null;
+  const removed=n===undefined?slot.count:Math.min(n,slot.count);
+  slot.count-=removed;
+  if(slot.count<=0)S.inventory.splice(idx,1);
   save();
+  return removed;
 }
 
 /* ── アイテム使用 (Phase13) ──
    ダンジョン内であれば効果適用後に1ターン経過させ、敵ターン・自然回復判定を実行する。
    町(ダンジョン外)ではHPの概念が無いため、使用しても効果は発生しない。 */
-function useItem(id){
-  const def=getItemDef(id);
-  const slot=(S.inventory||[]).find(s=>s.id===id);
-  if(!def||!slot)return;
+function useItem(idx){
+  const slot=S.inventory[idx];
+  const def=slot&&getItemDef(slot.id);
+  if(!slot||!def)return;
   if(def.type==='consumable'&&def.effect?.hp){
     const inDungeon=!!(DM&&DM.dungeon);
     const maxHp=inDungeon?DM.playerMaxHp:getPlayerMaxHp();
@@ -34,7 +47,7 @@ function useItem(id){
       toast('💧 HPが満タンです','g');
       return;
     }
-    removeItem(id,1);
+    removeItemAt(idx,1);
     const heal=Math.min(def.effect.hp,maxHp-curHp);
     if(inDungeon){
       DM.playerHp=Math.min(DM.playerMaxHp,DM.playerHp+heal);
@@ -49,10 +62,61 @@ function useItem(id){
     }
   }
 }
-function dropItem(id){
-  removeItem(id,1);
-  toast('📦 アイテムを置いた','g');
+/* ── 置く(Drop) — Phase16 ──
+   「捨てる」という表現は使わない。スロット内の個数を丸ごと床に設置し、その枠を空ける。
+   ダンジョン内であればプレイヤーの位置に視覚的に重ねて配置される(同マス複数アイテム可)。 */
+function doDropSlot(idx){
+  const slot=S.inventory[idx];
+  if(!slot)return null;
+  const id=slot.id,count=slot.count;
+  removeItemAt(idx);
+  if(DM&&DM.dungeon){
+    const fl=DM.floors[DM.floor];
+    if(fl)dmPlaceItemsOnFloor(id,count,fl.playerPos);
+  }
+  return id;
+}
+function dropItem(idx){ // 通常の持ち物画面から「置く」を選んだ場合
+  const id=doDropSlot(idx);
+  const def=id&&getItemDef(id);
+  toast(`📦 ${def?def.jp:'アイテム'}を床に置いた`,'g');
   renderInventory();
+}
+
+/* ── 所持がいっぱいの時のプロンプト (Phase16) ──
+   フィールドでアイテムを踏んだが空きが無い場合、どれかを「置く」よう求める。 */
+function openInvFullPrompt(){
+  document.getElementById('char-menu-ov').classList.add('show');
+  document.getElementById('cm-title').textContent='所持がいっぱいです';
+  const slots=S.inventory||[];
+  document.getElementById('cm-body').innerHTML=`
+    <div class="inv-cap">どれかを置いてください</div>
+    <div class="inv-list">${slots.map((s,i)=>{
+      const def=getItemDef(s.id);if(!def)return'';
+      return `<div class="inv-full-row">
+        <span class="inv-full-name">${def.icon} ${def.jp} ×${s.count}</span>
+        <button class="cact small" onclick="resolveInvFullDrop(${i})">置く</button>
+      </div>`;
+    }).join('')}</div>
+    <button class="evbtn cm-back" onclick="cancelInvFullPrompt()">キャンセル</button>`;
+}
+function resolveInvFullDrop(idx){
+  doDropSlot(idx);
+  closeCharMenu();
+  DM.pending=null;
+  const pos=DM.pendingPickup;DM.pendingPickup=null;
+  if(pos)dmTryPickupItems(pos.x,pos.y); // 空いた枠で元のアイテムの取得を再試行
+  if(!DM.pending){ // 取得が完了していれば、保留にしていた分のターンを処理する
+    dmRender();
+    dmEnemyTurn();
+  }
+}
+function cancelInvFullPrompt(){
+  closeCharMenu();
+  DM.pending=null;
+  DM.pendingPickup=null;
+  dmRender();
+  dmEnemyTurn(); // キャンセルしても、その場に来た移動自体のターンは経過させる
 }
 
 /* ── レベルアップ (Phase12) ──
@@ -120,23 +184,23 @@ function renderInventory(){
   const slots=S.inventory||[];
   document.getElementById('cm-body').innerHTML=`
     <div class="inv-cap">持ち物 ${slots.length} / ${INV_MAX_SLOTS}</div>
-    <div class="inv-list">${slots.length?slots.map(s=>{
+    <div class="inv-list">${slots.length?slots.map((s,i)=>{
       const def=getItemDef(s.id);if(!def)return'';
-      return `<button class="evbtn" onclick="renderItemDetail('${s.id}')">${def.icon} ${def.jp} ×${s.count}</button>`;
+      return `<button class="evbtn" onclick="renderItemDetail(${i})">${def.icon} ${def.jp} ×${s.count}</button>`;
     }).join(''):'<div class="inv-empty">何も持っていない</div>'}</div>
     <button class="evbtn cm-back" onclick="renderCharMenuRoot()">← 戻る</button>`;
 }
-function renderItemDetail(id){
-  const slot=(S.inventory||[]).find(s=>s.id===id);
-  const def=getItemDef(id);
+function renderItemDetail(idx){
+  const slot=S.inventory[idx];
+  const def=slot&&getItemDef(slot.id);
   if(!slot||!def){renderInventory();return}
   document.getElementById('cm-title').textContent=def.jp;
   document.getElementById('cm-body').innerHTML=`
     <div class="inv-detail-desc">${def.desc}</div>
     <div class="inv-detail-count">所持数: ×${slot.count}</div>
     <div class="inv-detail-actions">
-      <button class="cact" onclick="useItem('${id}')">使う</button>
-      <button class="cact secondary" onclick="dropItem('${id}')">置く</button>
+      <button class="cact" onclick="useItem(${idx})">使う</button>
+      <button class="cact secondary" onclick="dropItem(${idx})">置く</button>
       <button class="evbtn cm-back" onclick="renderInventory()">戻る</button>
     </div>`;
 }

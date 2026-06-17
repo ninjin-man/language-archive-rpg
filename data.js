@@ -140,6 +140,7 @@ function pickEnemyForFloor(floor){
 const ITEMS=[
   {id:'herb',      type:'consumable', name:'Herb',       jp:'薬草',  desc:'HPを20回復する',icon:'🌿', effect:{hp:20}},
   {id:'great_herb',type:'consumable', name:'Great Herb', jp:'上薬草', desc:'HPを50回復する',icon:'🍀', effect:{hp:50}},
+  {id:'bread',     type:'consumable', name:'Bread',      jp:'パン',  desc:'HPを10回復する',icon:'🍞', effect:{hp:10}},
 ];
 function getItemDef(id){return ITEMS.find(i=>i.id===id)}
 
