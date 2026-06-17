@@ -593,6 +593,7 @@ function rollEnemyDrops(enemy){
 function dmKillEnemy(enemy){
   const fl=DM.floors[DM.floor];
   if(fl&&fl.enemies)fl.enemies=fl.enemies.filter(e=>e!==enemy);
+  registerDexMonster(enemy.id); // Phase20: 初撃破で図鑑に登録
   const goldGain=Math.round((enemy.reward?.gold||0)*getGoldMultiplier());
   const aexpGain=Math.round((enemy.reward?.aexp||0)*getAExpMultiplier());
   S.gold=(S.gold||0)+goldGain;

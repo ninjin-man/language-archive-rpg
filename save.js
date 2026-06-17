@@ -4,6 +4,7 @@ let S={screen:'arc',job:'novice',unlockedJobs:['novice'],exp:0,ap:0,gold:0,relic
   aexp:0,stats:{atk:0,hp:0,spd:0,def:0,regen:0},wlv:{},skills:[],equippedSkills:[null,null,null],
   dungeonRecords:{maxFloor:0,totalRuns:0,kills:0},
   level:1,lvExp:0,inventory:[], // Phase10-12: 持ち物・レベルアップ(ローグライクコアループ)
+  dex:{items:{},monsters:{}},   // Phase20: 図鑑基盤(アイテム/モンスターの発見フラグ)
   ws:{},cwrd:[],citem:[],clog:[],filt:'all',off:{x:0,y:0}};
 
 // Word level helpers (単語進化システム)
@@ -32,6 +33,10 @@ function load(){
   if(!S.stats)S.stats={atk:0,hp:0,spd:0,def:0,regen:0};
   if(S.stats.def===undefined)S.stats.def=0;
   if(S.stats.regen===undefined)S.stats.regen=0;
+  // Phase20: 旧セーブに図鑑データが無い場合は補完
+  if(!S.dex)S.dex={items:{},monsters:{}};
+  if(!S.dex.items)S.dex.items={};
+  if(!S.dex.monsters)S.dex.monsters={};
   // Phase9: backfill Grammar Archive fields + pad words[] to 4 slots (noun,verb,adjective,adverb)
   (S.skills||[]).forEach(sk=>{
     if(sk.uses===undefined)sk.uses=1;

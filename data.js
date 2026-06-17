@@ -112,10 +112,10 @@ function getFloorTier(floor){
 /* ════ ENEMIES (Phase8: 戦闘システム) ════ */
 // Minimal enemy roster. def is derived simply from rarity for damage calc.
 const ENEMIES=[
-  {id:'slime',  name:'Slime',  icon:'🟢', hp:8,  atk:2, def:0, rarity:'common',    reward:{gold:5,  aexp:5}},
-  {id:'wolf',   name:'Wolf',   icon:'🐺', hp:14, atk:4, def:1, rarity:'uncommon',  reward:{gold:10, aexp:8}},
-  {id:'goblin', name:'Goblin', icon:'👺', hp:18, atk:5, def:1, rarity:'rare',      reward:{gold:15, aexp:12}},
-  {id:'dragon', name:'Dragon', icon:'🐉', hp:40, atk:9, def:3, rarity:'legendary', reward:{gold:50, aexp:30}},
+  {id:'slime',  name:'Slime',  jp:'スライム', desc:'最も弱いモンスター。', icon:'🟢', hp:8,  atk:2, def:0, rarity:'common',    reward:{gold:5,  aexp:5}},
+  {id:'wolf',   name:'Wolf',   jp:'ウォルフ', desc:'群れで行動する俊敏な獣。', icon:'🐺', hp:14, atk:4, def:1, rarity:'uncommon',  reward:{gold:10, aexp:8}},
+  {id:'goblin', name:'Goblin', jp:'ゴブリン', desc:'武器を使う狡猾な小鬼。', icon:'👺', hp:18, atk:5, def:1, rarity:'rare',      reward:{gold:15, aexp:12}},
+  {id:'dragon', name:'Dragon', jp:'ドラゴン', desc:'最深部に潜む伝説の魔物。', icon:'🐉', hp:40, atk:9, def:3, rarity:'legendary', reward:{gold:50, aexp:30}},
 ];
 // Pick an enemy appropriate for the current floor tier (higher tiers favor stronger enemies)
 function pickEnemyForFloor(floor){

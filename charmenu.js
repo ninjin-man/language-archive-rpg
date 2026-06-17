@@ -9,6 +9,7 @@ const STACK_MAX=10;     // スタック上限: 同種10個まで1枠(Phase16)
    そのため以降の使用/設置はid指定ではなく「どのスロットか(配列インデックス)」で個別に扱う。 */
 function addItem(id,n=1){
   if(!Array.isArray(S.inventory))S.inventory=[];
+  registerDexItem(id); // Phase20: 初回入手で図鑑に登録(取得が成功するかどうかに関わらず「発見」した事実は記録する)
   // 既存スタックに空きがあれば詰める
   const slot=S.inventory.find(s=>s.id===id&&s.count<STACK_MAX);
   if(slot){
@@ -20,6 +21,22 @@ function addItem(id,n=1){
   if(S.inventory.length>=INV_MAX_SLOTS)return false;
   S.inventory.push({id,count:Math.min(STACK_MAX,n)});
   save();return true;
+}
+// Phase20: 図鑑基盤 — アイテムを初発見した時に登録する(以後は何もしない)
+function registerDexItem(id){
+  if(!S.dex)S.dex={items:{},monsters:{}};
+  if(S.dex.items[id])return;
+  S.dex.items[id]=true;save();
+  const def=getItemDef(id);
+  toast(`📘 図鑑に登録: ${def?def.jp:id}`,'g');
+}
+// Phase20: 図鑑基盤 — モンスターを初撃破した時に登録する(以後は何もしない)
+function registerDexMonster(id){
+  if(!S.dex)S.dex={items:{},monsters:{}};
+  if(S.dex.monsters[id])return;
+  S.dex.monsters[id]=true;save();
+  const def=ENEMIES.find(e=>e.id===id);
+  toast(`📘 図鑑に登録: ${def?def.jp:id}`,'g');
 }
 // スロット(配列インデックス)を直接操作して取り除く。countを省略すると丸ごと取り除く(置く用)
 function removeItemAt(idx,n){
@@ -177,6 +194,7 @@ function renderCharMenuRoot(){
   document.getElementById('cm-body').innerHTML=`
     <button class="evbtn" onclick="renderInventory()">🎒 持ち物</button>
     <button class="evbtn" onclick="renderStatus()">💪 能力</button>
+    <button class="evbtn" onclick="renderDex()">📘 図鑑</button>
     <button class="evbtn" onclick="closeCharMenu()">✕ 閉じる</button>`;
 }
 function renderInventory(){
@@ -220,4 +238,48 @@ function renderStatus(){
     <div class="stat-row"><span>回復力</span><span>${getPlayerRegen()}</span></div>
     <div class="stat-row"><span>EXP</span><span>${exp} / ${need}</span></div>
     <button class="evbtn cm-back" onclick="renderCharMenuRoot()">← 戻る</button>`;
+}
+
+/* ── 図鑑 (Phase20: 図鑑基盤システム) ──
+   将来のアーカイブ/単語図鑑/職業図鑑/世界資料などを見据えた共通基盤。
+   今回はアイテム/モンスターの2カテゴリのみ。アーカイブはまだ表示しない。 */
+function renderDex(){
+  document.getElementById('cm-title').textContent='図鑑';
+  const total=ITEMS.length+ENEMIES.length;
+  const got=Object.keys(S.dex.items).length+Object.keys(S.dex.monsters).length;
+  document.getElementById('cm-body').innerHTML=`
+    <div class="inv-cap">収集率 ${got} / ${total}</div>
+    <div class="inv-list">
+      <button class="evbtn" onclick="renderDexCategory('items')">🎒 アイテム</button>
+      <button class="evbtn" onclick="renderDexCategory('monsters')">👾 モンスター</button>
+    </div>
+    <button class="evbtn cm-back" onclick="renderCharMenuRoot()">← 戻る</button>`;
+}
+function renderDexCategory(cat){
+  const isItem=cat==='items';
+  const list=isItem?ITEMS:ENEMIES;
+  const dexMap=isItem?S.dex.items:S.dex.monsters;
+  document.getElementById('cm-title').textContent=isItem?'図鑑: アイテム':'図鑑: モンスター';
+  document.getElementById('cm-body').innerHTML=`
+    <div class="inv-cap">${Object.keys(dexMap).length} / ${list.length}</div>
+    <div class="inv-list">${list.map(e=>{
+      const found=!!dexMap[e.id];
+      const label=found?e.jp:'？？？';
+      const icon=found?e.icon:'❔';
+      return `<button class="evbtn" onclick="renderDexDetail('${cat}','${e.id}')">${icon} ${label}</button>`;
+    }).join('')}</div>
+    <button class="evbtn cm-back" onclick="renderDex()">← 戻る</button>`;
+}
+function renderDexDetail(cat,id){
+  const isItem=cat==='items';
+  const list=isItem?ITEMS:ENEMIES;
+  const dexMap=isItem?S.dex.items:S.dex.monsters;
+  const e=list.find(x=>x.id===id);
+  if(!e){renderDexCategory(cat);return}
+  const found=!!dexMap[id];
+  document.getElementById('cm-title').textContent=found?e.jp:'？？？';
+  document.getElementById('cm-body').innerHTML=`
+    <div class="inv-detail-desc">${found?e.desc:'まだ発見していない。'}</div>
+    <div class="inv-detail-count">${found?'発見済':'未発見'}</div>
+    <button class="evbtn cm-back" onclick="renderDexCategory('${cat}')">戻る</button>`;
 }
