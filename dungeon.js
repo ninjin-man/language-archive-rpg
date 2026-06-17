@@ -712,7 +712,7 @@ function dmv(dir){
   }else{
     g[ny][nx]=CELL.PLAYER;
   }
-  if(msg){document.getElementById('dm-msg').textContent=msg;dmLog(msg)}
+  if(msg){dmLog(msg)}
   dmPlayWalkAnim(dir); // Phase24: 歩行アニメーション(walk1→4を再生してidleに戻る)
   dmRender();
   // 敵ターン制(MVPローグライク化): 移動も1ターンとして扱い、敵全体を行動させる
@@ -970,7 +970,7 @@ function dmResolvePending(){
     S.gold=(S.gold||0)+amt;save();updateHdr();
     msg=`🎁 宝箱からGold ${amt} を見つけた。`;
   }
-  document.getElementById('dm-msg').textContent=msg;dmLog(msg);
+  dmLog(msg);
   dmRender();
 }
 
@@ -1048,7 +1048,7 @@ function resolveEventChoice(choice){
     }
   }
   closeEventChoice();
-  if(msg){document.getElementById('dm-msg').textContent=msg;dmLog(msg)}
+  if(msg){dmLog(msg)}
 }
 
 /* ════ キーボード操作: 連続入力(キーリピート)対応 ════

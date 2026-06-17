@@ -359,13 +359,19 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .dm-dpad .dmb-left{grid-column:1;grid-row:2}
 .dm-dpad .dmb-right{grid-column:3;grid-row:2}
 .dm-dpad .dmb-down{grid-column:2;grid-row:3}
-.dmb-act{width:54px;height:54px;border-radius:50%;flex-shrink:0;
+.dmb-act{position:absolute;width:54px;height:54px;border-radius:50%;flex-shrink:0;
   background:linear-gradient(180deg,var(--gold-hi),var(--gold));color:var(--void);
   border:1px solid var(--gold);font-size:20px;font-weight:700;cursor:pointer;
   display:flex;align-items:center;justify-content:center;
   box-shadow:0 0 14px rgba(200,168,75,.35);transition:all var(--ease);
   touch-action:none;user-select:none;-webkit-user-select:none}
 .dmb-act:hover{filter:brightness(1.08)}
+/* SFC風ボタン配置: Aボタン(攻撃/決定)を右上、Bボタン(待機)を左下のダイヤモンド状に配置 */
+.dm-action-pad{position:relative;width:100px;height:96px;flex-shrink:0}
+.dm-action-pad .dmb-a{top:6px;right:2px}
+.dm-action-pad .dmb-b{bottom:2px;left:6px;width:44px;height:44px;font-size:16px;
+  background:linear-gradient(180deg,var(--s5),var(--s4));color:var(--t0);border:1px solid var(--b1);
+  box-shadow:none}
 
 /* ── DUNGEON MAP — luxury redesign ── */
 .dmov{display:none;position:fixed;inset:0;z-index:800;
@@ -478,13 +484,11 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 
 /* Console (right) */
 .dm-console{flex:1;display:flex;flex-direction:column;gap:8px;min-width:0}
-.dm-msg{font-size:12px;color:var(--gold);font-weight:700;min-height:18px;padding:8px 10px;
-  background:linear-gradient(160deg,var(--s4),var(--s3));border-radius:6px;border-left:3px solid var(--gold);
-  box-shadow:inset 0 0 10px rgba(0,0,0,.3)}
 .dm-log{font-size:10px;color:var(--t2);max-height:120px;overflow-y:auto;padding:6px 8px;
   background:rgba(0,0,0,.25);border-radius:6px;border:1px solid var(--b0)}
 .dm-log-line{padding:2px 0;border-bottom:1px solid var(--b0)}
 .dm-log-line:last-child{border-bottom:none}
+.dm-log-line:first-child{color:var(--gold);font-weight:700}
 
 /* ── RANDOM EVENT CHOICE (探索ループ改善) ── */
 .evov{display:none;position:fixed;inset:0;z-index:870;
@@ -875,33 +879,36 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
   .dmov{padding:0}
   .dmbox{width:100%;max-width:100%;height:100vh;height:100dvh;border-radius:0;
     display:flex;flex-direction:column}
-  .dmhdr{padding:5px 10px;flex:0 0 auto}
+  .dmhdr{padding:4px 10px;flex:0 0 auto}
   .dmt{font-size:12px}
   .dmf-info{font-size:9px;padding:2px 6px}
-  .dm-vitals{padding:3px 10px 0;gap:6px;flex:0 0 auto}
+  .dm-vitals{padding:2px 10px 0;gap:5px;flex:0 0 auto}
   .dm-vital-label{font-size:9px}
-  .dm-hpbar2{height:6px;max-width:120px}
+  .dm-hpbar2{height:5px;max-width:120px}
   .dm-hptxt2{font-size:9px}
-  .dm-hud{padding:4px 10px;gap:5px;font-size:9px;flex:0 0 auto}
-  .dmbody{padding:6px;gap:5px;flex:1;display:flex;flex-direction:column;min-height:0;overflow:hidden}
+  .dm-hud{padding:3px 8px;gap:4px;font-size:8px;flex:0 0 auto}
+  .dmbody{padding:5px;gap:4px;flex:1;display:flex;flex-direction:column;min-height:0;overflow:hidden}
   .dm-grid-area{flex:1;min-height:0;width:100%;display:flex;flex-direction:column;
     align-items:center;justify-content:center;gap:4px}
-  .dm-grid-frame{flex:1;min-height:0;width:100%;padding:4px;
+  .dm-grid-frame{flex:1;min-height:0;width:100%;padding:3px;
     display:flex;align-items:center;justify-content:center;overflow:hidden}
   /* 13x13ビューポート(UI改善: マップ最大化、17→13)。セルは固定pxをやめてグリッドトラックに
      フィットさせ、aspect-ratioで幅基準の正方形にすることで画面幅いっぱいまで自動拡大する */
   .dm-grid{grid-template-columns:repeat(13,1fr);grid-template-rows:repeat(13,1fr);gap:1px;
     width:100%;max-width:100%;aspect-ratio:1/1}
   .dc{width:100%;height:100%;font-size:9px}
-  /* ミニマップ: 半分サイズ(視認性より広さを優先) */
-  .dm-minimap-frame{padding:3px}
-  .dm-minimap{grid-template-columns:repeat(24,1px);grid-template-rows:repeat(24,1px);gap:0}
-  .dmm{width:1px;height:1px;border-radius:0}
+  /* ミニマップ: 2回り大きく(1px→3px) */
+  .dm-minimap-frame{padding:4px}
+  .dm-minimap{grid-template-columns:repeat(24,3px);grid-template-rows:repeat(24,3px);gap:0}
+  .dmm{width:3px;height:3px;border-radius:0}
   /* 操作ボタン間の余白を削減 */
-  .dm-lower{gap:6px}
-  .dm-pad-row{gap:8px}
+  .dm-lower{gap:5px}
+  .dm-pad-row{gap:6px}
   .dm-dpad{gap:3px}
-  .dm-controls{gap:4px}
+  .dm-controls{gap:3px}
+  .dm-cdr-label{font-size:7px;margin-top:2px}
+  /* SFC風アクションパッド(攻撃/決定=A, 待機=B)をモバイル幅向けに調整 */
+  .dm-action-pad{width:88px;height:84px}
   /* ログ: 1行表示(最新メッセージのみ見せる) */
   .dm-log{max-height:16px;overflow:hidden}
 }
@@ -913,13 +920,15 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
   .dmb{width:40px;height:40px;font-size:15px}
   .dm-dpad{grid-template-columns:40px 40px 40px;grid-template-rows:40px 40px 40px;gap:4px}
   .dmb-act{width:48px;height:48px;font-size:18px}
+  .dm-action-pad{width:78px;height:74px}
+  .dm-action-pad .dmb-b{width:38px;height:38px;font-size:14px}
   .dm-pad-row{gap:6px}
 }
 
 /* ════ Phase10-15: 持ち物・能力・レベルアップ・待機 (ローグライクコアループ) ════ */
 
-/* 待機ボタン(十字パッド中央) */
-.dm-dpad .dmb-wait{grid-column:2;grid-row:2;font-size:16px}
+/* 待機ボタン: 十字パッド中央から撤去し、SFC風アクションパッドのBボタンへ移動済み */
+
 
 /* メニュー(持ち物/能力)オーバーレイ — evov/evboxを再利用しテーマカラーのみ上書き */
 .cm-box{border-color:var(--gold-lo);min-width:260px}
