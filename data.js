@@ -109,38 +109,56 @@ function getFloorTier(floor){
   return FLOOR_TIERS.find(t=>floor>=t.minFloor&&floor<=t.maxFloor)||FLOOR_TIERS[0];
 }
 
-/* ════ ENEMIES (Phase8: 戦闘システム) ════ */
+/* ════ ENEMIES (Phase8: 戦闘システム → Phase21: バランス調整で構成更新) ════ */
 // Minimal enemy roster. def is derived simply from rarity for damage calc.
+// detectBonus: 索敵距離への加算(例: コウモリは追跡距離+2)
 const ENEMIES=[
-  {id:'slime',  name:'Slime',  jp:'スライム', desc:'最も弱いモンスター。', icon:'🟢', hp:8,  atk:2, def:0, rarity:'common',    reward:{gold:5,  aexp:5}},
-  {id:'wolf',   name:'Wolf',   jp:'ウォルフ', desc:'群れで行動する俊敏な獣。', icon:'🐺', hp:14, atk:4, def:1, rarity:'uncommon',  reward:{gold:10, aexp:8}},
-  {id:'goblin', name:'Goblin', jp:'ゴブリン', desc:'武器を使う狡猾な小鬼。', icon:'👺', hp:18, atk:5, def:1, rarity:'rare',      reward:{gold:15, aexp:12}},
-  {id:'dragon', name:'Dragon', jp:'ドラゴン', desc:'最深部に潜む伝説の魔物。', icon:'🐉', hp:40, atk:9, def:3, rarity:'legendary', reward:{gold:50, aexp:30}},
+  {id:'slime',  name:'Slime',  jp:'スライム', desc:'最も弱いモンスター。',     icon:'🟢', hp:10, atk:3, def:0, rarity:'common',    reward:{gold:5,  aexp:3}},
+  {id:'bat',    name:'Bat',    jp:'コウモリ', desc:'素早く飛び回り、遠くからでも追ってくる。', icon:'🦇', hp:8,  atk:2, def:0, rarity:'uncommon',  reward:{gold:6,  aexp:4}, detectBonus:2},
+  {id:'goblin', name:'Goblin', jp:'ゴブリン', desc:'武器を使う狡猾な小鬼。',     icon:'👺', hp:20, atk:5, def:1, rarity:'rare',      reward:{gold:12, aexp:8}},
+  {id:'orc',    name:'Orc',    jp:'オーク',   desc:'力任せに殴りかかる大柄な魔物。', icon:'👹', hp:35, atk:8, def:2, rarity:'legendary', reward:{gold:25, aexp:15}},
+  // Phase23: コンテンツ拡張で追加(将来15種類まで拡張可能な構造の一部)
+  {id:'wolf',     name:'Wolf',     jp:'ウルフ',   desc:'群れで行動する俊敏な獣。',       icon:'🐺', hp:16, atk:7, def:0, rarity:'uncommon',  reward:{gold:13, aexp:9},  detectBonus:1},
+  {id:'skeleton', name:'Skeleton', jp:'スケルトン', desc:'骨の鎧で硬さを増した不死者。',   icon:'💀', hp:22, atk:6, def:2, rarity:'rare',      reward:{gold:14, aexp:10}},
+  {id:'zombie',   name:'Zombie',   jp:'ゾンビ',   desc:'動きは遅いが非常にしぶとい。',     icon:'🧟', hp:30, atk:5, def:1, rarity:'rare',      reward:{gold:14, aexp:11}},
+  {id:'mage',     name:'Mage',     jp:'メイジ',   desc:'高い攻撃力を持つが防御は薄い魔術師。', icon:'🧙', hp:18, atk:9, def:0, rarity:'legendary', reward:{gold:18, aexp:13}},
 ];
-// Pick an enemy appropriate for the current floor tier (higher tiers favor stronger enemies)
+// Phase21: 階層別の出現率テーブル(B1〜B3は仕様の通り固定)
+// Phase23: B4以降を深度ブラケットに分け、新モンスター(ウルフ/スケルトン/ゾンビ/メイジ)を段階的に追加
+function getEnemySpawnWeights(floor){
+  if(floor===1)return {slime:100};
+  if(floor===2)return {slime:70,bat:30};
+  if(floor===3)return {slime:50,bat:30,goblin:20};
+  if(floor<=6) return {slime:30,bat:20,goblin:25,orc:15,wolf:10};
+  if(floor<=9) return {slime:15,bat:15,goblin:20,orc:20,wolf:15,skeleton:15};
+  if(floor<=12)return {bat:10,goblin:15,orc:20,wolf:15,skeleton:20,zombie:20};
+  if(floor<=16)return {goblin:10,orc:20,wolf:10,skeleton:20,zombie:20,mage:20};
+  return {orc:15,wolf:5,skeleton:20,zombie:20,mage:40}; // B17〜B20: 最深部
+}
+// Pick an enemy appropriate for the current floor (Phase21: 階層別出現率テーブルに基づく抽選。
+// HP/攻撃力は仕様の固定値のまま使用し、階層によるさらなる倍率補正は行わない)
 function pickEnemyForFloor(floor){
-  const tier=getFloorTier(floor);
+  const weights=getEnemySpawnWeights(floor);
   const weighted=[];
   ENEMIES.forEach(e=>{
-    const w=tier.rarityWeight[e.rarity]??1;
-    for(let i=0;i<Math.max(1,w);i++)weighted.push(e);
+    const w=weights[e.id]||0;
+    for(let i=0;i<w;i++)weighted.push(e);
   });
-  const base=weighted[Math.floor(Math.random()*weighted.length)];
-  // Scale hp/atk by tier's enemy multiplier (仮値)
-  return {
-    ...base,
-    hp:Math.round(base.hp*tier.enemyMult),
-    atk:Math.round(base.atk*tier.enemyMult),
-  };
+  if(!weighted.length)return {...ENEMIES[0]};
+  return {...weighted[Math.floor(Math.random()*weighted.length)]};
 }
 
 /* ════ ITEMS (Phase10: 持ち物システム) ════
    type は将来のアーカイブ実装(weapon/archive等)を見据えた拡張可能な構造。
    MVPでは consumable(消費アイテム)のみ実装。 */
 const ITEMS=[
-  {id:'herb',      type:'consumable', name:'Herb',       jp:'薬草',  desc:'HPを20回復する',icon:'🌿', effect:{hp:20}},
+  {id:'herb',      type:'consumable', name:'Herb',       jp:'薬草',   desc:'HPを20回復する',icon:'🌿', effect:{hp:20}},
   {id:'great_herb',type:'consumable', name:'Great Herb', jp:'上薬草', desc:'HPを50回復する',icon:'🍀', effect:{hp:50}},
-  {id:'bread',     type:'consumable', name:'Bread',      jp:'パン',  desc:'HPを10回復する',icon:'🍞', effect:{hp:10}},
+  {id:'bread',     type:'consumable', name:'Bread',      jp:'パン',   desc:'HPを10回復する',icon:'🍞', effect:{hp:10}},
+  // Phase23: コンテンツ拡張で追加
+  {id:'big_herb',  type:'consumable', name:'Big Herb',   jp:'大薬草', desc:'HPを100回復する',icon:'🪴', effect:{hp:100}},
+  {id:'antidote',  type:'consumable', name:'Antidote',   jp:'毒消し草', desc:'状態異常を解除する(状態異常システムは未実装)',icon:'🧪', effect:{cure:true}},
+  {id:'fire_stone',type:'consumable', name:'Fire Stone', jp:'火炎石', desc:'隣接する敵に固定ダメージを与える',icon:'🔥', effect:{fireDmg:15}},
 ];
 function getItemDef(id){return ITEMS.find(i=>i.id===id)}
 

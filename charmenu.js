@@ -69,15 +69,45 @@ function useItem(idx){
     if(inDungeon){
       DM.playerHp=Math.min(DM.playerMaxHp,DM.playerHp+heal);
       closeCharMenu();
-      dmLog(`🌿 ${def.jp}を使った！ HPが${heal}回復した`);
+      dmLog(`${def.icon} ${def.jp}を使った！ HPが${heal}回復した`);
       dmShowFloatDamage(Math.floor(VW/2),Math.floor(VH/2),heal,'heal');
       dmRender();
       dmEnemyTurn(); // 使用も1ターンとして扱う(Phase13)
     }else{
-      toast(`🌿 ${def.jp}を使った`,'g');
+      toast(`${def.icon} ${def.jp}を使った`,'g');
       renderInventory();
     }
+  } else if(def.type==='consumable'&&def.effect?.fireDmg){
+    useFireStone(idx,def); // Phase23: 火炎石
+  } else if(def.type==='consumable'&&def.effect?.cure){
+    // Phase23: 毒消し草 — 状態異常システムは未実装のため、現状は消費せず案内のみ
+    toast('✨ 今は状態異常にかかっていない(状態異常システムは後日実装予定)','g');
   }
+}
+// Phase23: 火炎石 — ダンジョン内で隣接(8方向)する敵1体に固定ダメージを与える。
+// 周囲に敵がいない場合は使用できない(消費しない)。使用も1ターンとして扱う。
+function useFireStone(idx,def){
+  if(!(DM&&DM.dungeon)){
+    toast('🔥 ダンジョン内でのみ使える','g');
+    return;
+  }
+  const fl=DM.floors[DM.floor];
+  const p=fl&&fl.playerPos;
+  if(!p)return;
+  const target=(fl.enemies||[]).find(e=>e.curHp>0&&Math.max(Math.abs(e.x-p.x),Math.abs(e.y-p.y))===1);
+  if(!target){
+    toast('🔥 近くに敵がいない','g');
+    return;
+  }
+  removeItemAt(idx,1);
+  closeCharMenu();
+  const dmg=def.effect.fireDmg;
+  target.curHp=Math.max(0,target.curHp-dmg);
+  dmLog(`🔥 ${def.jp}を使った！ ${target.jp||target.name}に${dmg}ダメージ`);
+  dmShowFloatDamage(Math.floor(VW/2)+(target.x-p.x),Math.floor(VH/2)+(target.y-p.y),dmg,'fire');
+  if(target.curHp<=0)dmKillEnemy(target);
+  dmRender();
+  dmEnemyTurn();
 }
 /* ── 置く(Drop) — Phase16 ──
    「捨てる」という表現は使わない。スロット内の個数を丸ごと床に設置し、その枠を空ける。
@@ -138,8 +168,14 @@ function cancelInvFullPrompt(){
 
 /* ── レベルアップ (Phase12) ──
    ランダム成長は禁止。毎レベル固定で HP+10 / 攻撃力+2 / 防御力+1 / 回復力+1 。 */
-const LV_EXP_BASE=50; // 次レベル必要経験値(MVP: 簡易固定値。後で階層に応じた曲線に調整可能)
-function getLvExpNeed(level){return LV_EXP_BASE}
+// Phase21: レベルアップ必要経験値テーブル(index 0 = Lv1→2 の必要量)
+const LV_EXP_TABLE=[10,25,50,80,120,170,230];
+function getLvExpNeed(level){
+  if(level<=LV_EXP_TABLE.length)return LV_EXP_TABLE[level-1];
+  // テーブルを超えるレベルは最後の増分(230-170=60)を引き継いで延長する(目安値)
+  const step=LV_EXP_TABLE[LV_EXP_TABLE.length-1]-LV_EXP_TABLE[LV_EXP_TABLE.length-2];
+  return LV_EXP_TABLE[LV_EXP_TABLE.length-1]+step*(level-LV_EXP_TABLE.length);
+}
 function gainLevelExp(amount){
   if(!amount||amount<=0)return;
   S.level=S.level||1;

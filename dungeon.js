@@ -43,7 +43,7 @@ function renderDungeonRecords(){
 /* ════════════════════════════════════════════════
    DUNGEON MAP — 10 floors, random BSP generation
 ════════════════════════════════════════════════ */
-const GW=11,GH=11;  // grid size per floor
+const GW=24,GH=24;  // grid size per floor (Phase20.5: 11→24 ダンジョン大型化)
 const CELL={WALL:0,FLOOR:1,PLAYER:2,CHEST:3,EVENT:4,EXIT:5,ENEMY:6,STAIRS_UP:7,STAIRS_DOWN:8,FOG:9,CHEST_GOLD:10};
 
 /* ════ RELICS (探索ループ改善) ════ */
@@ -143,20 +143,27 @@ function closeDmap(){
 function generateFloor(f){
   const g=Array.from({length:GH},()=>Array(GW).fill(CELL.WALL));
   // Rooms via BSP-lite
+  // Phase20.5: マップ拡張(11→24)に合わせ、分割の深さを3→8に拡張して部屋数を8〜15程度に増加。
+  // 分割方向も「長い辺を優先」する方式に変更し、極端に偏った形の親領域でも有効に分割されるようにした
+  // (通路の接続アルゴリズム自体は既存のまま変更していない)。部屋サイズも少しだけ拡大。
   const rooms=[];
   const tryRoom=(x1,y1,x2,y2,depth)=>{
-    if(depth>3||(x2-x1)<4||(y2-y1)<4)return;
-    const split=Math.random()>.5?'h':'v';
-    if(split==='h'&&y2-y1>7){
-      const mid=y1+2+Math.floor(Math.random()*(y2-y1-4));
+    if(depth>8||(x2-x1)<5||(y2-y1)<4)return;
+    const w=x2-x1,h=y2-y1;
+    let split;
+    if(h>w*1.25)split='h';
+    else if(w>h*1.25)split='v';
+    else split=Math.random()>.5?'h':'v';
+    if(split==='h'&&h>7){
+      const mid=y1+2+Math.floor(Math.random()*(h-4));
       tryRoom(x1,y1,x2,mid,depth+1);tryRoom(x1,mid,x2,y2,depth+1);
-    } else if(split==='v'&&x2-x1>7){
-      const mid=x1+2+Math.floor(Math.random()*(x2-x1-4));
+    } else if(split==='v'&&w>7){
+      const mid=x1+2+Math.floor(Math.random()*(w-4));
       tryRoom(x1,y1,mid,y2,depth+1);tryRoom(mid,y1,x2,y2,depth+1);
     } else {
-      // Carve room
-      const rw=Math.min(3+Math.floor(Math.random()*3),x2-x1-1);
-      const rh=Math.min(3+Math.floor(Math.random()*2),y2-y1-1);
+      // Carve room (Phase20.5: w 3-5→4-6, h 3-4→3-5 に拡大)
+      const rw=Math.min(4+Math.floor(Math.random()*3),x2-x1-1);
+      const rh=Math.min(3+Math.floor(Math.random()*3),y2-y1-1);
       const rx=x1+1+Math.floor(Math.random()*(x2-x1-rw-1));
       const ry=y1+1+Math.floor(Math.random()*(y2-y1-rh-1));
       rooms.push({x:rx,y:ry,w:rw,h:rh});
@@ -183,16 +190,37 @@ function generateFloor(f){
     for(let y=sy;y<=ey;y++)if(g[y][bx]===CELL.WALL)g[y][bx]=CELL.FLOOR;
   }
   // Place features
+  // ── Phase23: 特殊部屋(room.type) ──
+  // 将来の拡張(他のroom.typeの追加)を見据え、各部屋にtypeフィールドを持たせる。
+  // 開始部屋は常にnormal。部屋数が十分な時のみ抽選で割り当て、同じ部屋が複数の特殊typeを兼ねないようにする。
+  const startRoom=rooms[0];
+  rooms.forEach(r=>{r.type='normal'});
+  if(rooms.length>=4){
+    const specialPool=rooms.filter(r=>r!==startRoom);
+    const pickSpecial=()=>{
+      if(!specialPool.length)return null;
+      const i=Math.floor(Math.random()*specialPool.length);
+      return specialPool.splice(i,1)[0];
+    };
+    if(Math.random()<0.7){const r=pickSpecial();if(r)r.type='treasure'} // 宝物庫: アイテム2〜4個
+    if(Math.random()<0.6){const r=pickSpecial();if(r)r.type='monster'} // モンスター部屋: 敵4〜8体
+    if(Math.random()<0.5){const r=pickSpecial();if(r)r.type='rest'}    // 休憩部屋: 自然回復2倍
+  }
+  // 特殊部屋のマスは通常の宝箱/イベント/雑魚配置の対象から除外する(専用ロジックで後から配置する)
+  const specialCells=new Set();
+  rooms.forEach(r=>{
+    if(r.type==='normal')return;
+    for(let dy=0;dy<r.h;dy++)for(let dx=0;dx<r.w;dx++)specialCells.add(`${r.x+dx},${r.y+dy}`);
+  });
   const floorCells=[];
   for(let y=0;y<GH;y++)for(let x=0;x<GW;x++)if(g[y][x]===CELL.FLOOR)floorCells.push({x,y});
   const shuffle=arr=>{for(let i=arr.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[arr[i],arr[j]]=[arr[j],arr[i]]}return arr};
   const pool=shuffle([...floorCells]);
   // Player start: first room center
-  const startRoom=rooms[0];
   const px=startRoom.x+Math.floor(startRoom.w/2),py=startRoom.y+Math.floor(startRoom.h/2);
   g[py][px]=CELL.PLAYER;
   // Features
-  const targets=shuffle(pool.filter(c=>!(c.x===px&&c.y===py)));
+  const targets=shuffle(pool.filter(c=>!(c.x===px&&c.y===py)&&!specialCells.has(`${c.x},${c.y}`)));
   let ti=0;
   const place=(type)=>{
     while(ti<targets.length){
@@ -211,7 +239,7 @@ function generateFloor(f){
   // Enemies (Phase7: capped since maxFloor is now 20)
   // 改修(MVPローグライク化): 敵は静的セルではなく動的エンティティとして配置し、
   // 自律移動(敵AI)・接触攻撃の対象にする。床タイル自体は変更しない。
-  const nE=Math.min(4,1+Math.floor(f/5));
+  const nE=Math.min(8,2+Math.floor(f/3)); // Phase20.5: マップ拡張に合わせ出現数を約1.5〜2倍に(旧: min(4,1+floor(f/5)))
   const enemies=[];
   for(let i=0;i<nE;i++){
     if(ti>=targets.length)break;
@@ -268,6 +296,7 @@ function generateFloor(f){
   const itemDensity=f<5?0.3:f<10?0.45:0.6; // 低層30% / 中層45% / 高層60%の部屋に生成
   const items=[];
   rooms.forEach(room=>{
+    if(room.type!=='normal')return; // Phase23: 特殊部屋は専用ロジックで内容を生成するため対象外
     if(Math.random()>=itemDensity)return;
     const cells=roomFloorCells(room).filter(c=>!(c.x===px&&c.y===py));
     if(!cells.length)return;
@@ -289,6 +318,41 @@ function generateFloor(f){
     }
   });
 
+  // ── Phase23: 特殊部屋の内容生成 ──
+  // 宝物庫: アイテム2〜4個 / モンスター部屋: 敵4〜8体 / 休憩部屋: 何も置かず安全地帯として確保
+  const restCells=new Set();
+  rooms.forEach(room=>{
+    if(room.type==='treasure'){
+      const cells=roomFloorCells(room).filter(c=>!(c.x===px&&c.y===py));
+      const n=Math.min(2+Math.floor(Math.random()*3),cells.length); // 2〜4個
+      const used=new Set();
+      for(let i=0;i<n;i++){
+        let cell,tries=0;
+        do{cell=cells[Math.floor(Math.random()*cells.length)];tries++}
+        while(used.has(`${cell.x},${cell.y}`)&&tries<10);
+        if(used.has(`${cell.x},${cell.y}`))break;
+        used.add(`${cell.x},${cell.y}`);
+        const id=pickItemDrop(f,{});
+        if(id)items.push({x:cell.x,y:cell.y,id});
+      }
+    } else if(room.type==='monster'){
+      const cells=roomFloorCells(room).filter(c=>!(c.x===px&&c.y===py));
+      const n=Math.min(4+Math.floor(Math.random()*5),cells.length); // 4〜8体
+      const used=new Set();
+      for(let i=0;i<n;i++){
+        let cell,tries=0;
+        do{cell=cells[Math.floor(Math.random()*cells.length)];tries++}
+        while(used.has(`${cell.x},${cell.y}`)&&tries<10);
+        if(used.has(`${cell.x},${cell.y}`))break;
+        used.add(`${cell.x},${cell.y}`);
+        const tpl=pickEnemyForFloor(f);
+        enemies.push({...tpl,x:cell.x,y:cell.y,curHp:tpl.hp,state:'idle'});
+      }
+    } else if(room.type==='rest'){
+      roomFloorCells(room).forEach(c=>restCells.add(`${c.x},${c.y}`));
+    }
+  });
+
   // Fog of war: all cells start unexplored
   const explored=new Set();
   explored.add(`${px},${py}`);
@@ -297,13 +361,17 @@ function generateFloor(f){
     const nx=px+dx,ny=py+dy;
     if(nx>=0&&nx<GW&&ny>=0&&ny<GH)explored.add(`${nx},${ny}`);
   }
-  DM.floors[f]={grid:g,playerPos:{x:px,y:py},explored,enemies,items,stairsDownPos,stairsUpPos};
+  DM.floors[f]={grid:g,playerPos:{x:px,y:py},explored,enemies,items,stairsDownPos,stairsUpPos,rooms,restCells};
 }
-// アイテム生成テーブル(Phase18): 薬草は常時、上薬草は中層(B5F)以降解放、パンは低確率。
+// アイテム生成テーブル(Phase18の部屋限定生成 + Phase21のバランス調整値 + Phase23の新アイテム)
+// 薬草70% / 上薬草20%(B5F以降) / パン10%を基本とし、深層では大薬草・火炎石・毒消し草も追加で出現する。
 // 同一部屋での同種過剰生成を抑制するため、既に2個以上置かれた種類は重みを下げる。
 function pickItemDrop(floor,placedTypes){
-  const table=[{id:'herb',w:60},{id:'bread',w:15}];
+  const table=[{id:'herb',w:70},{id:'bread',w:10}];
   if(floor>=5)table.push({id:'great_herb',w:20});
+  if(floor>=3)table.push({id:'antidote',w:5});
+  if(floor>=8)table.push({id:'fire_stone',w:12});
+  if(floor>=10)table.push({id:'big_herb',w:8});
   const weighted=[];
   table.forEach(t=>{
     const penalty=(placedTypes[t.id]||0)>=2?0.3:1;
@@ -318,11 +386,29 @@ function loadFloor(f){
   DM.floor=f;DM.pending=null;
   document.getElementById('dm-floor').textContent=`B${f}F`;
   dmLog(`B${f}F に到着した。`);
+  showFloorFlash(f); // Phase22: 階段演出
+}
+// Phase22: 階層移動時に画面中央へ「B{N}F」を表示してフェードアウトさせる
+function showFloorFlash(f){
+  const el=document.getElementById('floor-flash');
+  if(!el)return;
+  el.textContent=`B${f}F`;
+  el.classList.remove('show');
+  void el.offsetWidth; // リフローで再トリガー可能にする(連続階層移動でも毎回再生される)
+  el.classList.add('show');
+}
+// Phase22: レアアイテム(上薬草)取得時に画面中央へ「★発見★」を表示
+function showRareFind(){
+  const el=document.getElementById('rare-flash');
+  if(!el)return;
+  el.classList.remove('show');
+  void el.offsetWidth;
+  el.classList.add('show');
 }
 
 // 不思議のダンジョン形式: 主人公中心のビューポート (VW x VH) をマップ側のオフセットで描画
 // 改修(MVPローグライク化・マップ拡大): 7x7→9x9 に拡大し、不要UI削減で生まれた領域も活用
-const VW=9,VH=9; // viewport size (odd: 中心セルが常にプレイヤー)
+const VW=17,VH=17; // viewport size (odd: 中心セルが常にプレイヤー) — Phase20.5: 9→17 表示範囲拡張
 const DM_LIGHT_FALLOFF=0.22; // 視界ライティング: 中心から離れるほど暗くなる係数
 const DM_LIGHT_MIN=0.5;      // 最低輝度(既踏破セルでも床と壁の判別を保つ)
 function dmRender(){
@@ -371,7 +457,12 @@ function dmRender(){
       ico=(def?def.icon:'❔')+(stack.length>1?`<span class="ditem-badge">${stack.length}</span>`:'');
     }
     const enemy=enemyAt[key];
-    if(enemy){cls='den';ico=enemy.icon||'👾'} // 敵が乗っているマスは敵を優先表示(アイテムより視認性を優先)
+    if(enemy){
+      cls='den';
+      // Phase22: 敵頭上にHPバーを表示
+      const hpPct=enemy.hp?Math.max(0,Math.round(enemy.curHp/enemy.hp*100)):0;
+      ico=`<div class="ehp"><div class="ehp-fill" style="width:${hpPct}%"></div></div>${enemy.icon||'👾'}`;
+    } // 敵が乗っているマスは敵を優先表示(アイテムより視認性を優先)
     // 視界ライティング: プレイヤーからの距離が遠い既踏破セルほど暗く表示
     const dist=Math.sqrt((mx-p.x)**2+(my-p.y)**2);
     const bright=Math.max(DM_LIGHT_MIN,1-dist*DM_LIGHT_FALLOFF).toFixed(2);
@@ -406,12 +497,20 @@ function dmRenderMinimap(){
   const mm=document.getElementById('dm-minimap');
   if(!mm)return;
   const fl=DM.floors[DM.floor];if(!fl)return;
-  const {grid:g,explored,playerPos:p}=fl;
+  const {grid:g,explored,playerPos:p,enemies}=fl;
+  // Phase22: 敵の現在位置を素早く参照できるようマップ化(生存している敵のみ)
+  const enemyAt={};
+  (enemies||[]).forEach(e=>{if(e.curHp>0)enemyAt[`${e.x},${e.y}`]=true});
   let html='';
   for(let y=0;y<GH;y++)for(let x=0;x<GW;x++){
     let cls='dmm-fog';
+    const key=`${x},${y}`;
     if(x===p.x&&y===p.y)cls='dmm-player';
-    else if(explored.has(`${x},${y}`))cls=g[y][x]===CELL.WALL?'dmm-wall':'dmm-explored';
+    else if(explored.has(key)){
+      if(enemyAt[key])cls='dmm-enemy';
+      else if(g[y][x]===CELL.STAIRS_DOWN||g[y][x]===CELL.STAIRS_UP)cls='dmm-stairs';
+      else cls=g[y][x]===CELL.WALL?'dmm-wall':'dmm-explored';
+    }
     html+=`<div class="dmm ${cls}"></div>`;
   }
   mm.innerHTML=html;
@@ -572,9 +671,9 @@ function dmContactAttack(enemy,dir){
 // 敵レアリティ別のドロップ確率テーブル(初期値はスライム=common を基準に設定)
 const DROP_TABLES={
   common:   [{id:'herb',w:20},{id:'great_herb',w:5}],
-  uncommon: [{id:'herb',w:25},{id:'great_herb',w:8}],
-  rare:     [{id:'herb',w:25},{id:'great_herb',w:12},{id:'bread',w:5}],
-  legendary:[{id:'herb',w:20},{id:'great_herb',w:20},{id:'bread',w:10}],
+  uncommon: [{id:'herb',w:25},{id:'great_herb',w:8},{id:'antidote',w:3}],
+  rare:     [{id:'herb',w:25},{id:'great_herb',w:12},{id:'bread',w:5},{id:'fire_stone',w:6},{id:'antidote',w:4}],
+  legendary:[{id:'herb',w:20},{id:'great_herb',w:20},{id:'bread',w:10},{id:'fire_stone',w:10},{id:'big_herb',w:8}],
 };
 // 1体につき最大2回のドロップ判定(重複可・何も出ない場合あり)
 function rollEnemyDrops(enemy){
@@ -631,6 +730,7 @@ function dmTryPickupItems(x,y){
     if(addItem(it.id,1)){
       fl.items=fl.items.filter(i=>i!==it);
       dmLog(`${def.icon} ${def.jp}を手に入れた！`);
+      if(it.id==='great_herb')showRareFind(); // Phase22: レアアイテム演出
     }else{
       DM.pending='inv_full';
       DM.pendingPickup={x,y};
@@ -692,7 +792,7 @@ function dmEnemyTurn(){
         e.state='aggro';
         return;
       }
-      if(dist<=DM_DETECT_RANGE)e.state='aggro';
+      if(dist<=DM_DETECT_RANGE+(e.detectBonus||0))e.state='aggro';
       if(e.state==='aggro')dmMoveEnemyToward(e,p,fl);
       else if(Math.random()<0.4)dmMoveEnemyRandom(e,fl);
     });
@@ -705,13 +805,17 @@ function dmEnemyTurn(){
 }
 
 // 自然回復(Phase14): プレイヤー行動10回毎に回復力ぶんHPが回復する。固定割合回復は禁止。
-// HP30%以下では回復量2倍。最大HPを超えない。ログ不要(フローティング表示のみ)。
+// HP30%以下では回復量2倍。Phase23: 休憩部屋(room.type==='rest')にいる間はさらに2倍(重複可)。
+// 最大HPを超えない。ログ不要(フローティング表示のみ)。
 function dmNaturalRegen(){
   if(!DM.dungeon||DM.playerHp<=0||DM.playerHp>=DM.playerMaxHp)return;
   const regen=getPlayerRegen();
   if(regen<=0)return;
   const lowHp=DM.playerHp<=DM.playerMaxHp*0.3;
-  const heal=Math.min(regen*(lowHp?2:1),DM.playerMaxHp-DM.playerHp);
+  const fl=DM.floors[DM.floor];
+  const inRest=!!(fl&&fl.restCells&&fl.playerPos&&fl.restCells.has(`${fl.playerPos.x},${fl.playerPos.y}`));
+  const mult=(lowHp?2:1)*(inRest?2:1);
+  const heal=Math.min(regen*mult,DM.playerMaxHp-DM.playerHp);
   if(heal<=0)return;
   DM.playerHp+=heal;
   dmShowFloatDamage(Math.floor(VW/2),Math.floor(VH/2),heal,'heal');
@@ -738,7 +842,7 @@ function dmShowFloatDamage(vx,vy,amount,kind){
   const y=padTop+vy*(cw+gap)+cw*0.25;
   const el=document.createElement('div');
   el.className='dmg-float '+(kind||'enemy');
-  el.textContent=(kind==='heal'?'+':'')+Math.abs(amount);
+  el.textContent=(kind==='heal'?'+':kind==='enemy'?'⚔':kind==='fire'?'🔥':'')+Math.abs(amount);
   el.style.left=x+'px';
   el.style.top=y+'px';
   frame.appendChild(el);

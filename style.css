@@ -342,12 +342,14 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
   padding:4px;border-radius:6px;border:1px solid var(--b1);
   background:rgba(4,6,12,.55);box-shadow:inset 0 0 10px rgba(0,0,0,.6);
   opacity:.88;pointer-events:none}
-.dm-minimap{display:grid;grid-template-columns:repeat(11,4px);grid-template-rows:repeat(11,4px);gap:1px}
-.dmm{width:4px;height:4px;border-radius:1px}
+.dm-minimap{display:grid;grid-template-columns:repeat(24,2px);grid-template-rows:repeat(24,2px);gap:1px}
+.dmm{width:2px;height:2px;border-radius:1px}
 .dmm-fog{background:transparent}
 .dmm-wall{background:#0d0f1a}
 .dmm-explored{background:var(--gold-lo)}
 .dmm-player{background:var(--cyan);box-shadow:0 0 3px var(--cyan)}
+.dmm-enemy{background:#ff5a5a;box-shadow:0 0 2px #ff5a5a}
+.dmm-stairs{background:#5af0e0;box-shadow:0 0 2px #5af0e0}
 
 /* 十字パッド + 行動ボタン(円形)を画像同様に分離配置 */
 .dm-pad-row{display:flex;align-items:center;gap:16px}
@@ -403,16 +405,20 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
   border:1px solid var(--b1);
   box-shadow:inset 0 0 30px rgba(0,0,0,.6);
 }
-.dm-grid{display:grid;gap:2px;grid-template-columns:repeat(9,44px)}
-.dc{width:44px;height:44px;border-radius:4px;display:flex;align-items:center;justify-content:center;
-  font-size:18px;transition:all .25s ease;position:relative;overflow:hidden}
-.player-icon{width:100%;height:100%;max-width:44px;max-height:44px;object-fit:contain;display:block}
+.dm-grid{display:grid;gap:2px;grid-template-columns:repeat(17,24px)}
+.dc{width:24px;height:24px;border-radius:4px;display:flex;align-items:center;justify-content:center;
+  font-size:10px;transition:all .25s ease;position:relative;overflow:hidden}
+.player-icon{width:100%;height:100%;max-width:24px;max-height:24px;object-fit:contain;display:block}
+/* Phase22: 敵HPバー(セル上部の細いバー) */
+.ehp{position:absolute;top:1px;left:10%;width:80%;height:3px;background:rgba(0,0,0,.55);border-radius:2px;overflow:hidden;z-index:2}
+.ehp-fill{height:100%;background:linear-gradient(90deg,#ff6a6a,#ff9a4a);transition:width .2s ease}
 
 /* フローティングダメージ(風来のシレン方式): モーダル無しで数値が上昇しながらフェードアウト */
 .dmg-float{position:absolute;pointer-events:none;font-weight:800;font-size:16px;
   color:var(--rose);text-shadow:0 1px 4px rgba(0,0,0,.9);z-index:5;
   transform:translate(-50%,0);animation:dmgfloat .8s ease-out forwards}
 .dmg-float.player{color:#ff8a8a}
+.dmg-float.fire{color:#ff9a3a}
 @keyframes dmgfloat{
   0%{opacity:1;transform:translate(-50%,0)}
   100%{opacity:0;transform:translate(-50%,-28px)}
@@ -852,18 +858,18 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
   .dm-vitals{padding:6px 10px 0;gap:6px}
   .dm-hpbar2{max-width:140px}
   .dm-pad-row{gap:12px}
-  /* 9x9ビューポート(マップ拡大)が幅390px程度の端末でも収まるようセルを縮小 */
-  .dc{width:32px;height:32px;font-size:14px}
-  .player-icon{max-width:32px;max-height:32px}
-  .dm-grid{grid-template-columns:repeat(9,32px)}
+  /* 17x17ビューポート(Phase20.5: マップ表示範囲拡張)が幅390px程度の端末でも収まるようセル・gapを縮小 */
+  .dc{width:18px;height:18px;font-size:8px}
+  .player-icon{max-width:18px;max-height:18px}
+  .dm-grid{grid-template-columns:repeat(17,18px);gap:1px}
 }
 
 @media(max-width:340px){
   .hdr-r .hs:nth-child(n+4){display:none} /* 極小幅では二次的なステータスを省略 */
   .csls.sk4{grid-template-columns:1fr}
-  .dc{width:27px;height:27px;font-size:12px}
-  .player-icon{max-width:27px;max-height:27px}
-  .dm-grid{grid-template-columns:repeat(9,27px)}
+  .dc{width:14px;height:14px;font-size:6px}
+  .player-icon{max-width:14px;max-height:14px}
+  .dm-grid{grid-template-columns:repeat(17,14px);gap:1px}
   .dmb{width:40px;height:40px;font-size:15px}
   .dm-dpad{grid-template-columns:40px 40px 40px;grid-template-rows:40px 40px 40px;gap:4px}
   .dmb-act{width:48px;height:48px;font-size:18px}
@@ -895,6 +901,19 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .dmg-float.heal{color:var(--green)}
 
 /* レベルアップ演出(Phase12): モーダルではなく一定時間で自動的に消える非ブロッキング表示 */
+/* Phase22: 階段演出(B{N}F)・レアアイテム演出(★発見★) — 同じ全画面オーバーレイ内で
+   それぞれ独立にフェードアニメーションさせる(画像不要、CSSのみ) */
+#floor-flash-ov{position:fixed;inset:0;z-index:910;pointer-events:none}
+#floor-flash,#rare-flash{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;opacity:0}
+#floor-flash{font-size:38px;font-weight:900;color:#fff;letter-spacing:.12em;
+  text-shadow:0 0 30px rgba(200,168,75,.7)}
+#rare-flash{font-size:28px;font-weight:900;color:var(--gold-hi);letter-spacing:.15em;
+  text-shadow:0 0 30px rgba(200,168,75,.9)}
+#floor-flash.show{animation:floorflash 1.8s ease forwards}
+#rare-flash.show{animation:floorflash 1.6s ease forwards}
+@keyframes floorflash{0%{opacity:0;transform:scale(.7)}15%{opacity:1;transform:scale(1)}70%{opacity:1}100%{opacity:0;transform:scale(1.05)}}
+
+/* レベルアップ演出(Phase12): モーダルではなく一定時間で自動的に消える非ブロッキング表示 */
 #lvup-ov{display:none;position:fixed;inset:0;z-index:920;
   align-items:center;justify-content:center;pointer-events:none}
 #lvup-ov.show{display:flex}
@@ -903,6 +922,11 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
   box-shadow:0 0 70px rgba(200,168,75,.4),0 24px 60px rgba(0,0,0,.8);
   animation:lvupin .4s cubic-bezier(.34,1.56,.64,1)}
 @keyframes lvupin{from{opacity:0;transform:scale(.6) translateY(16px)}to{opacity:1;transform:scale(1) translateY(0)}}
+/* Phase22: 「LEVEL UP」英語フラッシュ(1秒で拡大しながらフェードアウト、カード本体はそのまま残る) */
+.lvup-flash{font-size:26px;font-weight:900;letter-spacing:.1em;color:#fff;
+  text-shadow:0 0 20px var(--gold),0 0 40px rgba(200,168,75,.6);margin-bottom:4px;
+  animation:lvflash 1s ease forwards}
+@keyframes lvflash{0%{opacity:0;transform:scale(.5)}30%{opacity:1;transform:scale(1.15)}60%{opacity:1;transform:scale(1)}100%{opacity:0}}
 .lvup-title{font-size:13px;letter-spacing:.15em;color:var(--gold);font-weight:800;margin-bottom:6px;
   animation:pg 1s ease infinite alternate}
 .lvup-lv{font-size:30px;font-weight:800;color:var(--gold-hi);text-shadow:0 0 20px rgba(200,168,75,.6);margin-bottom:10px}
