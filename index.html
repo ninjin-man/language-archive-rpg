@@ -22,7 +22,6 @@
     <div class="hs">💪 <b id="hstat">0</b></div>
     <div class="hs">🎒 <b id="h-inv">0/20</b></div>
     <div class="hjob" id="hj">🌱 Novice</div>
-    <button class="hmenu-btn" onclick="openCharMenu()">☰ メニュー</button>
   </div>
 </div>
 <div id="nav">
@@ -227,6 +226,18 @@
       <button class="evbtn" onclick="resolveEventChoice('read')">📖 読む</button>
       <button class="evbtn" onclick="resolveEventChoice('destroy')">💥 破壊する</button>
       <button class="evbtn" onclick="resolveEventChoice('take')">📦 持ち帰る</button>
+    </div>
+  </div>
+</div>
+
+<!-- STAIRS CONFIRM: 次の階に行くかどうかの選択肢 -->
+<div id="stairs-ov" class="evov">
+  <div class="evbox">
+    <div class="evtitle" id="stairs-title">↓ 下り階段</div>
+    <div class="evdesc" id="stairs-desc">次の階に進みますか？</div>
+    <div class="evchoices">
+      <button class="evbtn" onclick="dmConfirmStairs()">進む</button>
+      <button class="evbtn" onclick="dmCancelStairs()">やめる</button>
     </div>
   </div>
 </div>

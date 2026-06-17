@@ -5,7 +5,7 @@
 const PLAYER_BASE_HP=20;
 const PLAYER_BASE_ATK=3;
 const PLAYER_BASE_DEF=0;   // Phase11/12: レベルアップでのみ成長する新規ステータス
-const PLAYER_BASE_REGEN=0; // Phase14: 自然回復用ステータス。レベルアップでのみ成長する
+const PLAYER_BASE_REGEN=1; // Phase14: 自然回復用ステータス。Lv1でも機能するよう基礎値を1に設定(レベルアップで追加成長)
 
 function getPlayerMaxHp(){
   return PLAYER_BASE_HP+(S.stats?.hp||0);

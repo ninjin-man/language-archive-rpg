@@ -128,6 +128,8 @@ function openDmap(id){
 function closeDmap(){
   document.getElementById('dmov').classList.remove('show');
   document.getElementById('event-ov')?.classList.remove('show');
+  document.getElementById('stairs-ov')?.classList.remove('show');
+  document.getElementById('char-menu-ov')?.classList.remove('show');
   // Phase7: ダンジョン記録 — 最高到達階を更新
   if(DM.dungeon){
     S.dungeonRecords=S.dungeonRecords||{maxFloor:0,totalRuns:0,kills:0};
@@ -242,19 +244,19 @@ function generateFloor(f){
     return weighted[Math.floor(Math.random()*weighted.length)];
   };
   const placeInRoom=(room,type)=>{
-    if(!room)return false;
+    if(!room)return null;
     const cells=roomFloorCells(room);
-    if(!cells.length)return false;
-    const {x,y}=cells[Math.floor(Math.random()*cells.length)];
-    g[y][x]=type;return true;
+    if(!cells.length)return null;
+    const cell=cells[Math.floor(Math.random()*cells.length)];
+    g[cell.y][cell.x]=type;return cell;
   };
-  let stairsDownRoom=null;
+  let stairsDownRoom=null,stairsDownPos=null,stairsUpPos=null;
   if(f<DM.maxFloor){
     stairsDownRoom=pickWeightedRoom(null);
-    placeInRoom(stairsDownRoom,CELL.STAIRS_DOWN);
+    stairsDownPos=placeInRoom(stairsDownRoom,CELL.STAIRS_DOWN);
   }
   if(f>1){
-    placeInRoom(pickWeightedRoom(stairsDownRoom),CELL.STAIRS_UP);
+    stairsUpPos=placeInRoom(pickWeightedRoom(stairsDownRoom),CELL.STAIRS_UP);
   }
   // Exit: floor 1 = retreat to town, floor 20 = final dungeon clear (Phase7)
   // (退却用の出口は通路上でも問題ないため、既存の防御的place()のままでよい)
@@ -295,7 +297,7 @@ function generateFloor(f){
     const nx=px+dx,ny=py+dy;
     if(nx>=0&&nx<GW&&ny>=0&&ny<GH)explored.add(`${nx},${ny}`);
   }
-  DM.floors[f]={grid:g,playerPos:{x:px,y:py},explored,enemies,items};
+  DM.floors[f]={grid:g,playerPos:{x:px,y:py},explored,enemies,items,stairsDownPos,stairsUpPos};
 }
 // アイテム生成テーブル(Phase18): 薬草は常時、上薬草は中層(B5F)以降解放、パンは低確率。
 // 同一部屋での同種過剰生成を抑制するため、既に2個以上置かれた種類は重みを下げる。
@@ -387,6 +389,10 @@ function dmRender(){
   }else if(DM.pending==='chest'){
     ab.textContent='🎁 開ける';
     ab.style.background='linear-gradient(180deg,#e8c96a,#c8a84b)';
+    ab.style.color='#04060c';
+  }else if(DM.pending==='stairs_down'||DM.pending==='stairs_up'){
+    ab.textContent=DM.pending==='stairs_down'?'↓ 進む':'↑ 戻る';
+    ab.style.background='linear-gradient(180deg,#7ad0ff,#4ea8d8)';
     ab.style.color='#04060c';
   }else{
     ab.textContent='⚔';
@@ -485,7 +491,10 @@ function dmv(dir){
     return;
   }
   // Move
-  g[p.y][p.x]=CELL.FLOOR;
+  // 階段タイルは「降りる/上る」を選ばずに離れた場合も消えずに残るようにする(通常マスはFLOORに戻る)
+  const leaving=(fl.stairsDownPos&&fl.stairsDownPos.x===p.x&&fl.stairsDownPos.y===p.y)?CELL.STAIRS_DOWN
+    :(fl.stairsUpPos&&fl.stairsUpPos.x===p.x&&fl.stairsUpPos.y===p.y)?CELL.STAIRS_UP:CELL.FLOOR;
+  g[p.y][p.x]=leaving;
   fl.playerPos={x:nx,y:ny};
   DM.steps++;
   // Reveal fog around new position
@@ -518,14 +527,11 @@ function dmv(dir){
       setTimeout(()=>{closeDmap();toast(`B${DM.floor}Fまで到達して撤退`,'g')},600);
     }
   }else if(dest===CELL.STAIRS_DOWN){
-    msg=`↓ 階段を下った。B${DM.floor+1}Fへ`;
-    g[ny][nx]=CELL.PLAYER;
-    setTimeout(()=>{loadFloor(DM.floor+1);dmRender()},300);
+    msg='↓ 下り階段を見つけた。';DM.pending='stairs_down';g[ny][nx]=CELL.PLAYER;
+    setTimeout(()=>{if(DM.pending==='stairs_down')openStairsConfirm('down')},300);
   }else if(dest===CELL.STAIRS_UP&&DM.floor>1){
-    msg=`↑ 階段を上った。B${DM.floor-1}Fへ`;
-    g[ny][nx]=CELL.PLAYER;
-    // Return player to previous floor (restore its grid)
-    setTimeout(()=>{loadFloor(DM.floor-1);dmRender()},300);
+    msg='↑ 上り階段を見つけた。';DM.pending='stairs_up';g[ny][nx]=CELL.PLAYER;
+    setTimeout(()=>{if(DM.pending==='stairs_up')openStairsConfirm('up')},300);
   }else{
     g[ny][nx]=CELL.PLAYER;
   }
@@ -752,6 +758,10 @@ function dmResolvePending(){
     showEventChoice();
     return;
   }
+  if(DM.pending==='stairs_down'||DM.pending==='stairs_up'){
+    openStairsConfirm(DM.pending==='stairs_down'?'down':'up');
+    return;
+  }
   // 通常チェスト: アーカイブ(単語)を直接発見させる
   // 改修(探索テンポ改善・強制クイズ廃止): 解答必須のクイズで進行を止めない。
   // discover()は既存のDISCOVERY CARDで報酬を提示するだけの非ブロッキングUIなので、
@@ -777,6 +787,33 @@ function dmResolvePending(){
   }
   document.getElementById('dm-msg').textContent=msg;dmLog(msg);
   dmRender();
+}
+
+/* ════ 階段の確認選択肢: 次の階に行くかどうかをプレイヤーに選ばせる ════ */
+function openStairsConfirm(dir){
+  document.getElementById('stairs-title').textContent=dir==='down'?'↓ 下り階段':'↑ 上り階段';
+  document.getElementById('stairs-desc').textContent=dir==='down'
+    ?`B${DM.floor+1}Fへ進みますか？`
+    :`B${DM.floor-1}Fへ戻りますか？`;
+  document.getElementById('stairs-ov').classList.add('show');
+}
+function dmConfirmStairs(){
+  const pending=DM.pending;
+  document.getElementById('stairs-ov').classList.remove('show');
+  DM.pending=null;
+  if(pending==='stairs_down'){
+    dmLog(`↓ 階段を下りた。B${DM.floor+1}Fへ`);
+    loadFloor(DM.floor+1);
+  }else if(pending==='stairs_up'){
+    dmLog(`↑ 階段を上った。B${DM.floor-1}Fへ`);
+    loadFloor(DM.floor-1);
+  }
+  dmRender();
+}
+function dmCancelStairs(){
+  document.getElementById('stairs-ov').classList.remove('show');
+  DM.pending=null;
+  dmRender(); // 階段マスのまま留まる(次に踏んだ時に再度選択肢が出る)
 }
 
 /* ════ RANDOM EVENT: 古い石碑 — 改修: 探索ループ改善 ════ */
