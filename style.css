@@ -434,10 +434,12 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 /* Phase24: タイルセット化(DOM+CSS方式)。background-imageでタイル画像を表示し、
    画像が未配置/読込失敗の間は元の単色グラデーションがそのままフォールバックとして見える。
    将来「石床/レンガ床/古代遺跡床」等を増やす場合は、セルのdata属性等でクラスを分岐させる拡張を想定。 */
-.dfl{background:linear-gradient(160deg,#454d6e,#363c58),url('assets/tiles/floor.png') center/cover;
+.dfl{background:url('assets/tiles/floor.png') center/cover,
+    linear-gradient(160deg,#454d6e,#363c58);
   border:1px solid var(--b2)}
 .dwa{background:linear-gradient(rgba(15,25,60,.55),rgba(15,25,60,.55)),
-    linear-gradient(160deg,#0a0c16,#04050a),url('assets/tiles/wall.png') center/cover;
+    url('assets/tiles/wall.png') center/cover,
+    linear-gradient(160deg,#0a0c16,#04050a);
   border:1px solid #15182a}
 .dpl{background:radial-gradient(circle,rgba(77,200,224,.5),rgba(30,80,144,.5));border:1.5px solid var(--cyan);
   animation:pp 1s ease infinite alternate;box-shadow:0 0 10px rgba(77,200,224,.4)}
