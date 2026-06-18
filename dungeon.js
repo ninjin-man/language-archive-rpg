@@ -43,6 +43,7 @@ function renderDungeonRecords(){
 /* ════════════════════════════════════════════════
    DUNGEON MAP — 10 floors, random BSP generation
 ════════════════════════════════════════════════ */
+// Phase25: 描画層(Renderer)はdungeon-renderer.jsに分離した。index.htmlでこのファイルより先に読み込むこと。
 const GW=24,GH=24;  // grid size per floor (Phase20.5: 11→24 ダンジョン大型化)
 const CELL={WALL:0,FLOOR:1,PLAYER:2,CHEST:3,EVENT:4,EXIT:5,ENEMY:6,STAIRS_UP:7,STAIRS_DOWN:8,FOG:9,CHEST_GOLD:10};
 
@@ -133,8 +134,7 @@ function openDmap(id){
   const maxHp=getPlayerMaxHp();
   DM={dungeon:d,floor:1,maxFloor:20,floors:{},steps:0,wordsFound:0,kills:0,log:[],pending:null,
       playerHp:maxHp,playerMaxHp:maxHp,battleDiscoverBonus:0,anim:{dir:'down',frame:'idle'}};
-  document.getElementById('dm-title').textContent=d.name;
-  document.getElementById('dmov').classList.add('show');
+  Renderer.openDungeonView(d.name);
   // Phase7: ダンジョン記録 — 総探索回数をカウント
   S.dungeonRecords=S.dungeonRecords||{maxFloor:0,totalRuns:0,kills:0};
   S.dungeonRecords.totalRuns++;
@@ -145,10 +145,7 @@ function openDmap(id){
 }
 function closeDmap(reason){
   reason=reason||'manual'; // 'manual'(✕ボタン撤退) | 'death'(HP0帰還) | 'clear'(最深部到達)
-  document.getElementById('dmov').classList.remove('show');
-  document.getElementById('event-ov')?.classList.remove('show');
-  document.getElementById('stairs-ov')?.classList.remove('show');
-  document.getElementById('char-menu-ov')?.classList.remove('show');
+  Renderer.closeDungeonView();
   // Phase7: ダンジョン記録 — 最高到達階を更新
   if(DM.dungeon){
     S.dungeonRecords=S.dungeonRecords||{maxFloor:0,totalRuns:0,kills:0};
@@ -413,7 +410,7 @@ function pickItemDrop(floor,placedTypes){
 function loadFloor(f){
   if(!DM.floors[f])generateFloor(f);
   DM.floor=f;DM.pending=null;
-  document.getElementById('dm-floor').textContent=`B${f}F`;
+  Renderer.setFloorLabel(`B${f}F`);
   dmLog(`B${f}F に到着した。`);
   showFloorFlash(f); // Phase22: 階段演出
   checkEscapeGemAward(f); // Phase24: 階層到達ボーナス(脱出の宝玉)
@@ -425,20 +422,11 @@ function loadFloor(f){
 }
 // Phase22: 階層移動時に画面中央へ「B{N}F」を表示してフェードアウトさせる
 function showFloorFlash(f){
-  const el=document.getElementById('floor-flash');
-  if(!el)return;
-  el.textContent=`B${f}F`;
-  el.classList.remove('show');
-  void el.offsetWidth; // リフローで再トリガー可能にする(連続階層移動でも毎回再生される)
-  el.classList.add('show');
+  Renderer.showFloorFlash(`B${f}F`);
 }
 // Phase22: レアアイテム(上薬草)取得時に画面中央へ「★発見★」を表示
 function showRareFind(){
-  const el=document.getElementById('rare-flash');
-  if(!el)return;
-  el.classList.remove('show');
-  void el.offsetWidth;
-  el.classList.add('show');
+  Renderer.showRareFind();
 }
 
 // 不思議のダンジョン形式: 主人公中心のビューポート (VW x VH) をマップ側のオフセットで描画
@@ -462,8 +450,7 @@ function spritePos(dir,frame){
 }
 // dmRenderでグリッド全体を再構築せず、プレイヤーアイコンの背景位置だけを書き換える(アニメーション再生用の軽量更新)
 function dmUpdatePlayerSprite(){
-  const el=document.querySelector('#dm-grid .player-sprite');
-  if(el)el.style.backgroundPosition=spritePos(DM.anim.dir,DM.anim.frame);
+  Renderer.updatePlayerSprite(spritePos(DM.anim.dir,DM.anim.frame));
 }
 let _dmWalkTimer=null;
 const DM_WALK_FRAMES=['walk1','walk2','walk3','walk4'];
@@ -496,10 +483,8 @@ function dmPlayAttackAnim(dir){
   },DM_ATTACK_ANIM_MS);
 }
 function dmRender(){
-  const gc=document.getElementById('dm-grid');
   const fl=DM.floors[DM.floor];if(!fl)return;
   const {grid:g,explored,playerPos:p,enemies,items}=fl;
-  let html='';
   const T={
     [CELL.WALL]:'dwa',
     [CELL.FLOOR]:'dfl',
@@ -512,25 +497,22 @@ function dmRender(){
     [CELL.STAIRS_UP]:'dstu',
   };
   const icons={[CELL.PLAYER]:`<div class="player-sprite" style="background-position:${spritePos(DM.anim.dir,DM.anim.frame)}"></div>`,[CELL.CHEST]:'🎁',[CELL.CHEST_GOLD]:'💰',[CELL.EVENT]:'❓',[CELL.EXIT]:'🚪',[CELL.STAIRS_DOWN]:'↓',[CELL.STAIRS_UP]:'↑'};
-  // 改修(MVPローグライク化): 敵は静的セルではなく動的エンティティとして座標上に重ねて描画する
   const enemyAt={};
   (enemies||[]).forEach(e=>{if(e.curHp>0)enemyAt[`${e.x},${e.y}`]=e});
-  // 床アイテム(Phase16/18/19): 同マスに複数あれば重ねて表示(先頭のアイコン+個数バッジ)
   const itemsAt={};
   (items||[]).forEach(it=>{
     const k=`${it.x},${it.y}`;
     (itemsAt[k]=itemsAt[k]||[]).push(it);
   });
-  // プレイヤーを中心(center)に置くためのマップ側オフセット
   const ox=p.x-Math.floor(VW/2);
   const oy=p.y-Math.floor(VH/2);
+  const cells=[];
   for(let vy=0;vy<VH;vy++)for(let vx=0;vx<VW;vx++){
-    const mx=ox+vx,my=oy+vy; // マップ座標
-    // マップ範囲外: 壁タイルで補完
-    if(mx<0||mx>=GW||my<0||my>=GH){html+=`<div class="dc dwa"></div>`;continue}
+    const mx=ox+vx,my=oy+vy;
+    if(mx<0||mx>=GW||my<0||my>=GH){cells.push({outOfBounds:true});continue}
     const key=`${mx},${my}`;
     const fog=!explored.has(key)&&g[my][mx]!==CELL.PLAYER;
-    if(fog){html+=`<div class="dc dfo"></div>`;continue}
+    if(fog){cells.push({fog:true});continue}
     const t=g[my][mx];
     let cls=T[t]||'dfl';
     let ico=icons[t]||'';
@@ -543,49 +525,36 @@ function dmRender(){
     const enemy=enemyAt[key];
     if(enemy){
       cls='den';
-      // Phase22: 敵頭上にHPバーを表示
       const hpPct=enemy.hp?Math.max(0,Math.round(enemy.curHp/enemy.hp*100)):0;
       ico=`<div class="ehp"><div class="ehp-fill" style="width:${hpPct}%"></div></div>${enemy.icon||'👾'}`;
-    } // 敵が乗っているマスは敵を優先表示(アイテムより視認性を優先)
-    // 視界ライティング: プレイヤーからの距離が遠い既踏破セルほど暗く表示
+    }
     const dist=Math.sqrt((mx-p.x)**2+(my-p.y)**2);
     const bright=Math.max(DM_LIGHT_MIN,1-dist*DM_LIGHT_FALLOFF).toFixed(2);
-    html+=`<div class="dc ${cls}" style="filter:brightness(${bright})">${ico}</div>`;
+    cells.push({cls,icon:ico,bright});
   }
-  gc.innerHTML=html;
+  let actionBtn;
+  if(DM.pending==='event_choice'){
+    actionBtn={text:'❓ 調べる',bg:'linear-gradient(180deg,#b06aff,#8a6dfa)',color:'#fff'};
+  }else if(DM.pending==='chest'){
+    actionBtn={text:'🎁 開ける',bg:'linear-gradient(180deg,#e8c96a,#c8a84b)',color:'#04060c'};
+  }else if(DM.pending==='stairs_down'||DM.pending==='stairs_up'){
+    actionBtn={text:DM.pending==='stairs_down'?'↓ 進む':'↑ 戻る',bg:'linear-gradient(180deg,#7ad0ff,#4ea8d8)',color:'#04060c'};
+  }else{
+    actionBtn={text:'⚔',bg:'',color:''};
+  }
+  Renderer.renderGrid(cells,actionBtn);
   dmRenderMinimap();
   dmUpdateHud();
-  // Action button state (改修: 'enemy'保留状態はモーダル戦闘廃止により削除)
-  const ab=document.getElementById('dm-act');
-  if(DM.pending==='event_choice'){
-    ab.textContent='❓ 調べる';
-    ab.style.background='linear-gradient(180deg,#b06aff,#8a6dfa)';
-    ab.style.color='#fff';
-  }else if(DM.pending==='chest'){
-    ab.textContent='🎁 開ける';
-    ab.style.background='linear-gradient(180deg,#e8c96a,#c8a84b)';
-    ab.style.color='#04060c';
-  }else if(DM.pending==='stairs_down'||DM.pending==='stairs_up'){
-    ab.textContent=DM.pending==='stairs_down'?'↓ 進む':'↑ 戻る';
-    ab.style.background='linear-gradient(180deg,#7ad0ff,#4ea8d8)';
-    ab.style.color='#04060c';
-  }else{
-    ab.textContent='⚔';
-    ab.style.background='';
-    ab.style.color='';
-  }
 }
 
 // 全体俯瞰ミニマップ: 探索済みセルをドットで表示(画面左上に常設)
 function dmRenderMinimap(){
-  const mm=document.getElementById('dm-minimap');
-  if(!mm)return;
   const fl=DM.floors[DM.floor];if(!fl)return;
   const {grid:g,explored,playerPos:p,enemies}=fl;
   // Phase22: 敵の現在位置を素早く参照できるようマップ化(生存している敵のみ)
   const enemyAt={};
   (enemies||[]).forEach(e=>{if(e.curHp>0)enemyAt[`${e.x},${e.y}`]=true});
-  let html='';
+  const cells=[];
   for(let y=0;y<GH;y++)for(let x=0;x<GW;x++){
     let cls='dmm-fog';
     const key=`${x},${y}`;
@@ -595,41 +564,34 @@ function dmRenderMinimap(){
       else if(g[y][x]===CELL.STAIRS_DOWN||g[y][x]===CELL.STAIRS_UP)cls='dmm-stairs';
       else cls=g[y][x]===CELL.WALL?'dmm-wall':'dmm-explored';
     }
-    html+=`<div class="dmm ${cls}"></div>`;
+    cells.push(cls);
   }
-  mm.innerHTML=html;
+  Renderer.renderMinimap(cells);
 }
 
 // ダンジョン中も常時表示するHUD: 職業・EXP・所持品(語数/Gold/AP)・HPを同期
 function dmUpdateHud(){
   const j=JD.find(j=>j.id===S.job);
-  const jobEl=document.getElementById('dmh-job');
-  if(jobEl)jobEl.textContent=j?j.icon+' '+j.name:'🌱 Novice';
   const pct=S.exp%100;
-  const ef=document.getElementById('dmh-ef');if(ef)ef.style.width=pct+'%';
-  const el=document.getElementById('dmh-el');if(el)el.textContent=`${pct}/100 EXP`;
-  const w=document.getElementById('dmh-w');if(w)w.textContent=nd();
-  const gld=document.getElementById('dmh-g');if(gld)gld.textContent=S.gold||0;
-  const ap=document.getElementById('dmh-ap');if(ap)ap.textContent=S.ap||0;
-  const inv=document.getElementById('dmh-inv');if(inv)inv.textContent=`${(S.inventory||[]).length}/${INV_MAX_SLOTS}`;
-  const gem=document.getElementById('dmh-gem');if(gem)gem.textContent=S.escapeGems||0;
-  // HPバー(MVPローグライク化アップデート: 常時表示)
-  const hpFill=document.getElementById('dm-hpfill2');
-  const hpTxt=document.getElementById('dm-hptxt2');
-  if(hpFill&&hpTxt){
-    const hpPct=DM.playerMaxHp?Math.max(0,Math.round(DM.playerHp/DM.playerMaxHp*100)):0;
-    hpFill.style.width=hpPct+'%';
-    hpFill.style.background=hpPct<=25
-      ?'linear-gradient(90deg,#c84b4b,#ff6a6a)'
-      :'linear-gradient(90deg,var(--green),#7ae0a0)';
-    hpTxt.textContent=`${Math.max(0,DM.playerHp)}/${DM.playerMaxHp}`;
-  }
+  const hpPct=DM.playerMaxHp?Math.max(0,Math.round(DM.playerHp/DM.playerMaxHp*100)):0;
+  Renderer.updateHud({
+    job: j?j.icon+' '+j.name:'🌱 Novice',
+    expPct: pct,
+    expLabel: `${pct}/100 EXP`,
+    words: nd(),
+    gold: S.gold||0,
+    ap: S.ap||0,
+    inv: `${(S.inventory||[]).length}/${INV_MAX_SLOTS}`,
+    gems: S.escapeGems||0,
+    hpPct,
+    hpLow: hpPct<=25,
+    hpLabel: `${Math.max(0,DM.playerHp)}/${DM.playerMaxHp}`,
+  });
 }
 
 function dmLog(msg){
   DM.log.unshift(msg);if(DM.log.length>10)DM.log.pop();
-  const el=document.getElementById('dm-log');
-  if(el)el.innerHTML=DM.log.map(l=>`<div class="dm-log-line">${l}</div>`).join('');
+  Renderer.renderLog(DM.log);
 }
 
 // Special chest: instantly grants Gold or a word (no quiz) — 改修: 探索ループ改善
@@ -910,23 +872,11 @@ function dmWait(){
 
 // フローティングダメージ表示(風来のシレン方式): モーダルを出さず数値が上昇しながら消える
 function dmShowFloatDamage(vx,vy,amount,kind){
-  const frame=document.getElementById('dm-grid-frame');
-  const grid=document.getElementById('dm-grid');
-  if(!frame||!grid)return;
-  const cellEl=grid.querySelector('.dc');
-  const cw=cellEl?cellEl.offsetWidth:44;
-  const gap=parseFloat(getComputedStyle(grid).gap)||2;
-  const padLeft=parseFloat(getComputedStyle(frame).paddingLeft)||10;
-  const padTop=parseFloat(getComputedStyle(frame).paddingTop)||10;
-  const x=padLeft+vx*(cw+gap)+cw/2;
-  const y=padTop+vy*(cw+gap)+cw*0.25;
-  const el=document.createElement('div');
-  el.className='dmg-float '+(kind||'enemy');
-  el.textContent=(kind==='heal'?'+':kind==='enemy'?'⚔':kind==='fire'?'🔥':'')+Math.abs(amount);
-  el.style.left=x+'px';
-  el.style.top=y+'px';
-  frame.appendChild(el);
-  setTimeout(()=>el.remove(),900);
+  const m=Renderer.getCellMetrics();
+  const x=m.padLeft+vx*(m.cw+m.gap)+m.cw/2;
+  const y=m.padTop+vy*(m.cw+m.gap)+m.cw*0.25;
+  const text=(kind==='heal'?'+':kind==='enemy'?'⚔':kind==='fire'?'🔥':'')+Math.abs(amount);
+  Renderer.showFloatDamage(x,y,text,kind);
 }
 
 // プレイヤーのHPが0になった際の処理: ダンジョンから帰還する(獲得済みアーカイブ/Gold等は保持)
@@ -976,15 +926,13 @@ function dmResolvePending(){
 
 /* ════ 階段の確認選択肢: 次の階に行くかどうかをプレイヤーに選ばせる ════ */
 function openStairsConfirm(dir){
-  document.getElementById('stairs-title').textContent=dir==='down'?'↓ 下り階段':'↑ 上り階段';
-  document.getElementById('stairs-desc').textContent=dir==='down'
-    ?`B${DM.floor+1}Fへ進みますか？`
-    :`B${DM.floor-1}Fへ戻りますか？`;
-  document.getElementById('stairs-ov').classList.add('show');
+  const title=dir==='down'?'↓ 下り階段':'↑ 上り階段';
+  const desc=dir==='down'?`B${DM.floor+1}Fへ進みますか？`:`B${DM.floor-1}Fへ戻りますか？`;
+  Renderer.showStairsConfirm(title,desc);
 }
 function dmConfirmStairs(){
   const pending=DM.pending;
-  document.getElementById('stairs-ov').classList.remove('show');
+  Renderer.hideStairsConfirm();
   DM.pending=null;
   if(pending==='stairs_down'){
     dmLog(`↓ 階段を下りた。B${DM.floor+1}Fへ`);
@@ -996,19 +944,17 @@ function dmConfirmStairs(){
   dmRender();
 }
 function dmCancelStairs(){
-  document.getElementById('stairs-ov').classList.remove('show');
+  Renderer.hideStairsConfirm();
   DM.pending=null;
   dmRender(); // 階段マスのまま留まる(次に踏んだ時に再度選択肢が出る)
 }
 
 /* ════ RANDOM EVENT: 古い石碑 — 改修: 探索ループ改善 ════ */
 function showEventChoice(){
-  const ov=document.getElementById('event-ov');
-  if(ov)ov.classList.add('show');
+  Renderer.showEventChoice();
 }
 function closeEventChoice(){
-  const ov=document.getElementById('event-ov');
-  if(ov)ov.classList.remove('show');
+  Renderer.hideEventChoice();
   DM.pending=null;
   dmRender();
   dmProcessQueue();
@@ -1069,7 +1015,7 @@ const dmInput={
   queue:[]              // 移動完了直後に処理する入力キュー
 };
 function dmIsOverlayOpen(){
-  return document.getElementById('dmov')?.classList.contains('show');
+  return Renderer.isDungeonViewOpen();
 }
 function dmStopRepeat(){
   if(dmInput.timer){clearTimeout(dmInput.timer);clearInterval(dmInput.timer);dmInput.timer=null}
