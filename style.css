@@ -367,9 +367,9 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
   touch-action:none;user-select:none;-webkit-user-select:none}
 .dmb-act:hover{filter:brightness(1.08)}
 /* SFC風ボタン配置: Aボタン(攻撃/決定)を右上、Bボタン(待機)を左下のダイヤモンド状に配置 */
-.dm-action-pad{position:relative;width:100px;height:96px;flex-shrink:0}
-.dm-action-pad .dmb-a{top:6px;right:2px}
-.dm-action-pad .dmb-b{bottom:2px;left:6px;width:44px;height:44px;font-size:16px;
+.dm-action-pad{position:relative;width:100px;height:100px;flex-shrink:0;margin-left:auto}
+.dm-action-pad .dmb-a{top:0;right:0}
+.dm-action-pad .dmb-b{bottom:0;left:0;width:44px;height:44px;font-size:16px;
   background:linear-gradient(180deg,var(--s5),var(--s4));color:var(--t0);border:1px solid var(--b1);
   box-shadow:none}
 
@@ -417,8 +417,11 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
   font-size:10px;transition:all .25s ease;position:relative;overflow:hidden}
 /* Phase24: スプライトシート(assets/sprites/player_sheet.png, 6列×4行)から該当フレームを
    背景として切り出して表示する。background-positionはJS(spritePos)が動的に書き換える。
-   画像未配置時はbackground-colorのフォールバックで崩れないようにしている。 */
-.player-sprite{width:100%;height:100%;display:block;
+   画像未配置時はbackground-colorのフォールバックで崩れないようにしている。
+   1フレームは縦長(約140.5×316px)なので、aspect-ratioで実際の比率に固定して隣接フレームの
+   混入を防止。セルより大きく(150%)・足元をセル底に揃えて表示する。 */
+.player-sprite{position:absolute;left:50%;bottom:0;width:150%;aspect-ratio:1405/3160;
+  transform:translateX(-50%);
   background-image:url('assets/sprites/player_sheet.png');
   background-repeat:no-repeat;background-size:600% 400%;
   background-color:rgba(77,200,224,.25);border-radius:3px;
@@ -448,7 +451,8 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
     linear-gradient(160deg,#0a0c16,#04050a);
   border:1px solid #15182a}
 .dpl{background:radial-gradient(circle,rgba(77,200,224,.5),rgba(30,80,144,.5));border:1.5px solid var(--cyan);
-  animation:pp 1s ease infinite alternate;box-shadow:0 0 10px rgba(77,200,224,.4)}
+  animation:pp 1s ease infinite alternate;box-shadow:0 0 10px rgba(77,200,224,.4);
+  overflow:visible;z-index:5}
 @keyframes pp{from{box-shadow:0 0 6px rgba(77,200,224,.3)}to{box-shadow:0 0 16px rgba(77,200,224,.8)}}
 .dch{background:radial-gradient(circle,rgba(232,201,106,.35),rgba(200,168,75,.12));border:1px solid var(--gold);
   box-shadow:0 0 8px rgba(200,168,75,.25);animation:gp 1.4s ease infinite alternate}
@@ -897,20 +901,23 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
   .dm-grid{grid-template-columns:repeat(13,1fr);grid-template-rows:repeat(13,1fr);gap:1px;
     width:100%;max-width:100%;aspect-ratio:1/1}
   .dc{width:100%;height:100%;font-size:9px}
-  /* ミニマップ: 2回り大きく(1px→3px) */
+  /* ミニマップ: もう1段階大きく(3px→4px) */
   .dm-minimap-frame{padding:4px}
-  .dm-minimap{grid-template-columns:repeat(24,3px);grid-template-rows:repeat(24,3px);gap:0}
-  .dmm{width:3px;height:3px;border-radius:0}
-  /* 操作ボタン間の余白を削減 */
-  .dm-lower{gap:5px}
-  .dm-pad-row{gap:6px}
+  .dm-minimap{grid-template-columns:repeat(24,4px);grid-template-rows:repeat(24,4px);gap:0}
+  .dmm{width:4px;height:4px;border-radius:0}
+  /* レイアウト変更: ログをマップ直下に全幅1行で表示し、操作パッドをその下に配置(マップの専有面積を最大化) */
+  .dm-lower{flex-direction:column;gap:4px}
+  .dm-console{order:-1;width:100%}
+  .dm-controls{width:100%;gap:3px}
+  .dm-pad-row{justify-content:space-between;width:100%;gap:6px}
   .dm-dpad{gap:3px}
-  .dm-controls{gap:3px}
   .dm-cdr-label{font-size:7px;margin-top:2px}
-  /* SFC風アクションパッド(攻撃/決定=A, 待機=B)をモバイル幅向けに調整 */
+  /* SFC風アクションパッド(攻撃/決定=A, 待機=B)をモバイル幅向けに調整。十字キーは左端、本パッドは右端に固定表示される */
   .dm-action-pad{width:88px;height:84px}
-  /* ログ: 1行表示(最新メッセージのみ見せる) */
-  .dm-log{max-height:16px;overflow:hidden}
+  /* ログ: 1行表示(最新メッセージのみ見せる)。行の実高さ(font10px+padding+border)に対して
+     余裕を持たせ、テキストの上下が切れないようにする */
+  .dm-log{max-height:21px;overflow:hidden}
+  .dm-log-line{line-height:1.3}
 }
 
 @media(max-width:340px){
