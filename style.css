@@ -412,7 +412,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
   border:1px solid var(--b1);
   box-shadow:inset 0 0 30px rgba(0,0,0,.6);
 }
-.dm-grid{display:grid;gap:2px;grid-template-columns:repeat(13,24px)}
+.dm-grid{display:grid;gap:2px;grid-template-columns:repeat(9,24px)}
 .dc{width:24px;height:24px;border-radius:4px;display:flex;align-items:center;justify-content:center;
   font-size:10px;transition:all .25s ease;position:relative;overflow:hidden}
 /* Phase24: スプライトシート(assets/sprites/player_sheet.png, 6列×4行)から該当フレームを
@@ -420,8 +420,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
    画像未配置時はbackground-colorのフォールバックで崩れないようにしている。
    1フレームは縦長(約140.5×316px)なので、aspect-ratioで実際の比率に固定して隣接フレームの
    混入を防止。セルより大きく(150%)・足元をセル底に揃えて表示する。 */
-.player-sprite{position:absolute;left:50%;bottom:0;width:150%;aspect-ratio:1405/3160;
-  transform:translateX(-50%);
+.player-sprite{height:100%;width:auto;aspect-ratio:1405/3160;display:block;
   background-image:url('assets/sprites/player_sheet.png');
   background-repeat:no-repeat;background-size:600% 400%;
   background-color:rgba(77,200,224,.25);border-radius:3px;
@@ -451,8 +450,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
     linear-gradient(160deg,#0a0c16,#04050a);
   border:1px solid #15182a}
 .dpl{background:radial-gradient(circle,rgba(77,200,224,.5),rgba(30,80,144,.5));border:1.5px solid var(--cyan);
-  animation:pp 1s ease infinite alternate;box-shadow:0 0 10px rgba(77,200,224,.4);
-  overflow:visible;z-index:5}
+  animation:pp 1s ease infinite alternate;box-shadow:0 0 10px rgba(77,200,224,.4)}
 @keyframes pp{from{box-shadow:0 0 6px rgba(77,200,224,.3)}to{box-shadow:0 0 16px rgba(77,200,224,.8)}}
 .dch{background:radial-gradient(circle,rgba(232,201,106,.35),rgba(200,168,75,.12));border:1px solid var(--gold);
   box-shadow:0 0 8px rgba(200,168,75,.25);animation:gp 1.4s ease infinite alternate}
@@ -896,15 +894,15 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
     align-items:center;justify-content:center;gap:4px}
   .dm-grid-frame{flex:1;min-height:0;width:100%;padding:3px;
     display:flex;align-items:center;justify-content:center;overflow:hidden}
-  /* 13x13ビューポート(UI改善: マップ最大化、17→13)。セルは固定pxをやめてグリッドトラックに
+  /* 9x9ビューポート(UI改善: マップ最大化、13→9)。セルは固定pxをやめてグリッドトラックに
      フィットさせ、aspect-ratioで幅基準の正方形にすることで画面幅いっぱいまで自動拡大する */
-  .dm-grid{grid-template-columns:repeat(13,1fr);grid-template-rows:repeat(13,1fr);gap:1px;
+  .dm-grid{grid-template-columns:repeat(9,1fr);grid-template-rows:repeat(9,1fr);gap:1px;
     width:100%;max-width:100%;aspect-ratio:1/1}
   .dc{width:100%;height:100%;font-size:9px}
-  /* ミニマップ: もう1段階大きく(3px→4px) */
-  .dm-minimap-frame{padding:4px}
-  .dm-minimap{grid-template-columns:repeat(24,4px);grid-template-rows:repeat(24,4px);gap:0}
-  .dmm{width:4px;height:4px;border-radius:0}
+  /* ミニマップ: 表示範囲が広すぎた(セル比で約3個分)ため縮小し、グリッドの専有感を減らす */
+  .dm-minimap-frame{padding:3px}
+  .dm-minimap{grid-template-columns:repeat(24,2px);grid-template-rows:repeat(24,2px);gap:0}
+  .dmm{width:2px;height:2px;border-radius:0}
   /* レイアウト変更: ログをマップ直下に全幅1行で表示し、操作パッドをその下に配置(マップの専有面積を最大化) */
   .dm-lower{flex-direction:column;gap:4px}
   .dm-console{order:-1;width:100%}
