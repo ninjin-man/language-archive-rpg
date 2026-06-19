@@ -412,7 +412,12 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
   border:1px solid var(--b1);
   box-shadow:inset 0 0 30px rgba(0,0,0,.6);
 }
-.dm-grid{display:grid;gap:2px;grid-template-columns:repeat(9,24px)}
+.dm-grid{display:none}
+/* Canvas版ダンジョングリッド(正式採用)。.dm-gridと同じ場所・同じ寸法に配置する。
+   セルサイズ自体はJS側(canvas-renderer.js)がgetBoundingClientRectで実測するため、
+   ここでは「箱の大きさ」だけ.dm-gridと完全に揃えればよい。 */
+#dm-canvas{display:block;width:calc(9*24px + 8*2px);height:calc(9*24px + 8*2px);
+  border-radius:4px;image-rendering:pixelated}
 .dc{width:24px;height:24px;border-radius:4px;display:flex;align-items:center;justify-content:center;
   font-size:10px;transition:all .25s ease;position:relative;overflow:hidden}
 /* Phase24: スプライトシート(assets/sprites/player_sheet.png, 6列×4行)から該当フレームを
@@ -898,6 +903,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
      フィットさせ、aspect-ratioで幅基準の正方形にすることで画面幅いっぱいまで自動拡大する */
   .dm-grid{grid-template-columns:repeat(9,1fr);grid-template-rows:repeat(9,1fr);gap:1px;
     width:100%;max-width:100%;aspect-ratio:1/1}
+  #dm-canvas{width:100%;height:auto;aspect-ratio:1/1}
   .dc{width:100%;height:100%;font-size:9px}
   /* ミニマップ: 表示範囲が広すぎた(セル比で約3個分)ため縮小し、グリッドの専有感を減らす */
   .dm-minimap-frame{padding:3px}
