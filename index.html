@@ -6,7 +6,6 @@
 <title>Language Archive RPG</title>
 <link rel="stylesheet" href="style.css">
 <link rel="stylesheet" href="worldmap.css">
-<link rel="stylesheet" href="worldmap.css">
 </head>
 <body>
 <div id="root">
@@ -32,7 +31,6 @@
   <button class="nb" onclick="go('cft')"><span class="ni">⚗️</span>クラフト</button>
   <button class="nb" onclick="go('skill')"><span class="ni">🔥</span>Skill Forge</button>
   <button class="nb" onclick="go('job')"><span class="ni">🧙</span>職業</button>
-  <button class="nb" onclick="openArcV2()"><span class="ni">🗺️</span>アーカイブ(新)</button>
 </div>
 <div id="qbar">
   <span class="qb-lbl">目標</span>
@@ -40,47 +38,55 @@
 </div>
 <div id="content">
 
-<!-- ARCHIVE -->
+<!-- ARCHIVE — Sphere Grid (PhaseA) -->
 <div id="s-arc" class="scr on">
-  <div id="arc-sb">
-    <div class="sb-title">カテゴリ</div>
-    <div class="cat-list" id="cat-list"></div>
-    <div class="sb-foot">
-      <div class="rr2"><span>修復率</span><span class="rv" id="rpct">0%</span></div>
-      <div class="rb"><div class="rf" id="rfil" style="width:0%"></div></div>
-      <div class="cs" id="cs"></div>
+  <div id="sg-host"></div>
+
+  <!-- top-left: completion HUD -->
+  <div id="sg-hud">
+    <div class="sg-hud-title">語彙の盤</div>
+    <div class="sg-hud-row"><span id="sg-count">0 / 0</span><span class="sg-hud-pct" id="sg-pct">0%</span></div>
+    <div class="sg-hud-bar"><div class="sg-hud-fill" id="sg-fill"></div></div>
+  </div>
+
+  <!-- top-right: controls -->
+  <div class="sg-ctl">
+    <button onclick="sgZoom(1)" title="拡大">+</button>
+    <button onclick="sgZoom(-1)" title="縮小">−</button>
+    <button onclick="sgRecenter()" title="現在地へ">◎</button>
+    <button onclick="sgZoom(0)" title="全体表示">⊙</button>
+  </div>
+
+  <!-- bottom-left: cluster map toggle -->
+  <button class="sg-mini-toggle" onclick="sgToggleMini()">🗺️ 領域</button>
+  <div id="sg-mini-wrap">
+    <div class="sg-mini-head">領域(カテゴリ)</div>
+    <div id="sg-mini"></div>
+  </div>
+
+  <!-- legend -->
+  <div class="sg-leg">
+    <div class="sg-leg-h">習熟度</div>
+    <div class="sg-leg-r"><span class="sg-leg-d" style="border-color:#48507a;background:#0c111f"></span>未踏</div>
+    <div class="sg-leg-r"><span class="sg-leg-d" style="border-color:var(--cyan);background:rgba(77,200,224,.4)"></span>発見</div>
+    <div class="sg-leg-r"><span class="sg-leg-d" style="border-color:var(--m2);background:rgba(30,80,144,.5)"></span>学習</div>
+    <div class="sg-leg-r"><span class="sg-leg-d" style="border-color:var(--gold);background:rgba(200,168,75,.45)"></span>習熟</div>
+    <div class="sg-leg-r"><span class="sg-leg-d" style="border-color:var(--amber);background:rgba(224,152,42,.5)"></span>達人</div>
+  </div>
+
+  <!-- detail sheet -->
+  <div id="sg-det">
+    <div class="sg-det-hdr">
+      <div class="sg-det-lbl">ノード詳細</div>
+      <div id="sg-det-top"><div style="text-align:center;padding:16px 0;color:var(--t2);font-size:11px">ノードを選択</div></div>
+    </div>
+    <div class="sg-det-body" id="sg-det-body"></div>
+    <div class="sg-det-ftr" id="sg-det-ftr" style="display:none">
+      <button class="btn btn-g" id="sg-det-btn">📝 クイズ</button>
+      <button class="btn btn-d" onclick="sgCloseDetail()">×</button>
     </div>
   </div>
-  <div id="arc-wrap">
-    <svg id="arc-svg"></svg>
-    <div id="arc-nodes"></div>
-  </div>
-  <button class="arc-cat-toggle" onclick="document.getElementById('arc-sb').classList.toggle('mob-open');syncArcBackdrop()">📂 カテゴリ</button>
-  <div class="arc-zoom">
-    <button onclick="zoomArc(0.15)">+</button>
-    <button onclick="zoomArc(-0.15)">−</button>
-    <button onclick="zoomArc(0)" title="リセット">⊙</button>
-  </div>
-  <div class="arc-leg">
-    <div style="font-size:7px;letter-spacing:.1em;text-transform:uppercase;color:var(--t2);margin-bottom:2px">習熟度</div>
-    <div class="lr"><div class="ld" style="border-color:#1e2440;background:#1e2440"></div><span>未発見</span></div>
-    <div class="lr"><div class="ld" style="border-color:var(--cyan);background:rgba(77,200,224,.35)"></div><span>発見済み</span></div>
-    <div class="lr"><div class="ld" style="border-color:var(--m2);background:rgba(30,80,144,.5)"></div><span>学習中</span></div>
-    <div class="lr"><div class="ld" style="border-color:var(--gold);background:rgba(200,168,75,.35)"></div><span>習熟済み</span></div>
-    <div class="lr"><div class="ld" style="border-color:var(--amber);background:rgba(224,152,42,.45)"></div><span>マスター</span></div>
-  </div>
-  <div id="arc-det">
-    <div class="det-hdr">
-      <div class="det-lbl">単語詳細</div>
-      <div id="det-top"><div style="text-align:center;padding:14px 0;color:var(--t2);font-size:10px">ノードを選択</div></div>
-    </div>
-    <div class="det-body" id="det-body"></div>
-    <div class="det-ftr" id="det-ftr" style="display:none">
-      <button class="btn btn-g" id="det-qb">📝 Quiz</button>
-      <button class="btn btn-d" onclick="closeDet()">×</button>
-    </div>
-  </div>
-  <div id="arc-backdrop" onclick="closeDet();document.getElementById('arc-sb')?.classList.remove('mob-open');syncArcBackdrop()"></div>
+  <div id="sg-backdrop" onclick="sgCloseDetail();document.getElementById('sg-mini-wrap')?.classList.remove('open')"></div>
 </div>
 
 <!-- EXPLORE -->
@@ -128,9 +134,6 @@
 </div>
 </div>
 </div>
-
-<!-- TOOLTIP -->
-<div id="arc-tip"></div>
 
 <!-- LEGENDARY FLASH -->
 <div id="legendary-flash"></div>
@@ -294,19 +297,10 @@
 </div>
 
 <div id="toasts"></div>
-<!-- ARCHIVE V2 (Phase8: archive_v2プロトタイプ表示用モーダル, 既存システム非依存) -->
-<div id="arcv2-ov" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.85);z-index:9999">
-  <div style="position:absolute;top:0;left:0;right:0;bottom:0;display:flex;flex-direction:column">
-    <div style="display:flex;justify-content:flex-end;padding:6px">
-      <button onclick="closeArcV2()" style="padding:6px 12px">✕ 閉じる</button>
-    </div>
-    <iframe id="arcv2-frame" src="" style="flex:1;width:100%;border:0"></iframe>
-  </div>
-</div>
 
 <script src="data.js"></script>
 <script src="save.js"></script>
-<script src="archive.js"></script>
+<script src="sphere-grid.js"></script>
 <script src="dungeon-renderer.js"></script>
 <script src="dungeon.js"></script>
 <script src="canvas-renderer.js"></script>
@@ -317,16 +311,5 @@
 <script src="jobs.js"></script>
 <script src="ui.js"></script>
 <script src="worldmap.js"></script>
-<script>
-  // archive_v2プロトタイプ表示用(既存JSとは独立、ArchiveData等の名前空間に影響なし)
-  function openArcV2() {
-    var frame = document.getElementById('arcv2-frame');
-    frame.src = new URL('archive_v2/archive-prototype.html', document.baseURI).href;
-    document.getElementById('arcv2-ov').style.display = 'block';
-  }
-  function closeArcV2() {
-    document.getElementById('arcv2-ov').style.display = 'none';
-  }
-</script>
 </body>
 </html>

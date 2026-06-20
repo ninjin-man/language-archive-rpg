@@ -5,7 +5,7 @@ let S={screen:'arc',job:'novice',unlockedJobs:['novice'],exp:0,ap:0,gold:0,relic
   dungeonRecords:{maxFloor:0,totalRuns:0,kills:0},
   level:1,lvExp:0,inventory:[], // Phase10-12: 持ち物・レベルアップ(ローグライクコアループ)
   dex:{items:{},monsters:{}},   // Phase20: 図鑑基盤(アイテム/モンスターの発見フラグ)
-  escapeGems:0,                 // Phase24: 脱出の宝玉(永続所持・売却/使用不可の重要アイテム)
+  gridPos:null,                 // PhaseA: スフィア盤のカーソル位置(単語名)
   ws:{},cwrd:[],citem:[],clog:[],filt:'all',off:{x:0,y:0}};
 
 // Word level helpers (単語進化システム)
@@ -38,8 +38,6 @@ function load(){
   if(!S.dex)S.dex={items:{},monsters:{}};
   if(!S.dex.items)S.dex.items={};
   if(!S.dex.monsters)S.dex.monsters={};
-  // Phase24: 旧セーブに脱出の宝玉の所持数が無い場合は0で補完
-  if(S.escapeGems===undefined)S.escapeGems=0;
   // Phase9: backfill Grammar Archive fields + pad words[] to 4 slots (noun,verb,adjective,adverb)
   (S.skills||[]).forEach(sk=>{
     if(sk.uses===undefined)sk.uses=1;
