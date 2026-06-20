@@ -5,6 +5,7 @@ let S={screen:'arc',job:'novice',unlockedJobs:['novice'],exp:0,ap:0,gold:0,relic
   dungeonRecords:{maxFloor:0,totalRuns:0,kills:0},
   level:1,lvExp:0,inventory:[], // Phase10-12: 持ち物・レベルアップ(ローグライクコアループ)
   dex:{items:{},monsters:{}},   // Phase20: 図鑑基盤(アイテム/モンスターの発見フラグ)
+  equipment:{weapon:null,shield:null,accessory:null}, // Phase26: 装備スロット
   gridPos:null,                 // PhaseA: スフィア盤のカーソル位置(単語名)
   ws:{},cwrd:[],citem:[],clog:[],filt:'all',off:{x:0,y:0}};
 
@@ -38,6 +39,9 @@ function load(){
   if(!S.dex)S.dex={items:{},monsters:{}};
   if(!S.dex.items)S.dex.items={};
   if(!S.dex.monsters)S.dex.monsters={};
+  // Phase26: 装備スロットの補完(旧セーブ互換)
+  if(!S.equipment)S.equipment={weapon:null,shield:null,accessory:null};
+  ['weapon','shield','accessory'].forEach(s=>{if(S.equipment[s]===undefined)S.equipment[s]=null});
   // Phase9: backfill Grammar Archive fields + pad words[] to 4 slots (noun,verb,adjective,adverb)
   (S.skills||[]).forEach(sk=>{
     if(sk.uses===undefined)sk.uses=1;

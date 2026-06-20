@@ -338,10 +338,10 @@ function generateFloor(f){
       while(used.has(`${cell.x},${cell.y}`)&&tries<10);
       if(used.has(`${cell.x},${cell.y}`))break;
       used.add(`${cell.x},${cell.y}`);
-      const id=pickItemDrop(f,placedTypes);
-      if(!id)continue;
-      placedTypes[id]=(placedTypes[id]||0)+1;
-      items.push({x:cell.x,y:cell.y,id});
+      const drop=pickItemDrop(f,placedTypes);
+      if(!drop||!drop.id)continue;
+      placedTypes[drop.id]=(placedTypes[drop.id]||0)+1;
+      items.push({x:cell.x,y:cell.y,id:drop.id,meta:drop.meta});
     }
   });
 
@@ -359,8 +359,8 @@ function generateFloor(f){
         while(used.has(`${cell.x},${cell.y}`)&&tries<10);
         if(used.has(`${cell.x},${cell.y}`))break;
         used.add(`${cell.x},${cell.y}`);
-        const id=pickItemDrop(f,{});
-        if(id)items.push({x:cell.x,y:cell.y,id});
+        const drop=pickItemDrop(f,{});
+        if(drop&&drop.id)items.push({x:cell.x,y:cell.y,id:drop.id,meta:drop.meta});
       }
     } else if(room.type==='monster'){
       const cells=roomFloorCells(room).filter(c=>!(c.x===px&&c.y===py));
@@ -390,10 +390,19 @@ function generateFloor(f){
   }
   DM.floors[f]={grid:g,playerPos:{x:px,y:py},explored,enemies,items,stairsDownPos,stairsUpPos,rooms,restCells};
 }
-// アイテム生成テーブル(Phase18の部屋限定生成 + Phase21のバランス調整値 + Phase23の新アイテム)
-// 薬草70% / 上薬草20%(B5F以降) / パン10%を基本とし、深層では大薬草・火炎石・毒消し草も追加で出現する。
-// 同一部屋での同種過剰生成を抑制するため、既に2個以上置かれた種類は重みを下げる。
+// アイテム生成テーブル(Phase18の部屋限定生成 + Phase21のバランス調整値 + Phase23の新アイテム + Phase26のリワード刷新)
+// 改修(Phase26): 戻り値を id文字列 から {id,meta} オブジェクトに変更し、装備のレアリティや
+//   欠片のダンジョンIDといった「床ドロップ固有の付帯情報」を持てるようにした。
+//   既存の薬草・パン等(metaなし)は {id} だけを返す。呼び出し側は both を受け付ける。
+// アイテム比率(仮設定): アーカイブの欠片10% / お金18% / 鉱石12% / 装備8% / 残り(消費アイテム)52%
 function pickItemDrop(floor,placedTypes){
+  // ── カテゴリ抽選(各カテゴリの出現比率) ──
+  const r=Math.random()*100;
+  if(r<10)return {id:'archive_shard',meta:{dungeonId:DM.dungeon?.id}};           // 10% 欠片
+  if(r<28)return {id:'gold_pile',meta:{amount:rollFloorGold(floor)}};            // 18% お金
+  if(r<40)return {id:pickOre(floor)};                                            // 12% 鉱石
+  if(r<48)return {id:pickEquip(),meta:{rarity:rollEquipRarity(floor)}};          // 8%  装備
+  // ── 残り52%: 従来の消費アイテム(薬草中心) ──
   const table=[{id:'herb',w:70},{id:'bread',w:10}];
   if(floor>=5)table.push({id:'great_herb',w:20});
   if(floor>=3)table.push({id:'antidote',w:5});
@@ -405,6 +414,34 @@ function pickItemDrop(floor,placedTypes){
     const w=Math.max(1,Math.round(t.w*penalty));
     for(let i=0;i<w;i++)weighted.push(t.id);
   });
+  return {id:weighted[Math.floor(Math.random()*weighted.length)]};
+}
+// 床のお金パイル1個ぶんのGold量(階層が深いほど多い)
+function rollFloorGold(floor){return 8+Math.floor(Math.random()*(8+floor*4))}
+// 鉱石の種類抽選(深層ほど高価値の鉱石が出やすい)
+function pickOre(floor){
+  const table=[{id:'ore_iron',w:60}];
+  if(floor>=4)table.push({id:'ore_crystal',w:25});
+  if(floor>=7)table.push({id:'ore_gold',w:Math.min(40,10+floor)});
+  const weighted=[];table.forEach(t=>{for(let i=0;i<t.w;i++)weighted.push(t.id)});
+  return weighted[Math.floor(Math.random()*weighted.length)];
+}
+// 装備のスロット&種類抽選
+function pickEquip(){
+  const slots=Object.keys(EQUIP_BY_SLOT);
+  const slot=slots[Math.floor(Math.random()*slots.length)];
+  const pool=EQUIP_BY_SLOT[slot];
+  return pool[Math.floor(Math.random()*pool.length)];
+}
+// 装備レアリティ抽選(フロアティアのrarityWeightを流用して深層ほど高レアになりやすい)
+function rollEquipRarity(floor){
+  const tier=getFloorTier(floor||1);
+  const weighted=[];
+  RKEYS.forEach(rk=>{
+    const w=tier.rarityWeight[rk]||0;
+    for(let i=0;i<w;i++)weighted.push(rk);
+  });
+  if(!weighted.length)return 'common';
   return weighted[Math.floor(Math.random()*weighted.length)];
 }
 
@@ -786,10 +823,27 @@ function dmTryPickupItems(x,y){
   for(const it of here){
     const def=getItemDef(it.id);
     if(!def)continue;
-    if(addItem(it.id,1)){
+    // Phase26: お金は持ち物枠を使わず即Goldに変換(取得確定・常に成功)
+    if(def.type==='gold'){
+      const amt=Math.round((it.meta?.amount||10)*getGoldMultiplier());
+      S.gold=(S.gold||0)+amt;save();updateHdr();
       fl.items=fl.items.filter(i=>i!==it);
-      dmLog(`${def.icon} ${def.jp}を手に入れた！`);
-      if(it.id==='great_herb')showRareFind(); // Phase22: レアアイテム演出
+      dmLog(`💰 お金を拾った！ Gold +${amt}`);
+      continue;
+    }
+    if(addItem(it.id,1,it.meta)){
+      fl.items=fl.items.filter(i=>i!==it);
+      // Phase26: 取得ログをカテゴリ別に最適化(装備はレアリティ名/欠片は専用文言)
+      if(def.type==='weapon'||def.type==='shield'||def.type==='accessory'){
+        dmLog(`${equipDisplayName({id:it.id,rarity:it.meta?.rarity})}を手に入れた！`);
+        if(['rare','epic','legendary'].includes(it.meta?.rarity))showRareFind();
+      }else if(def.type==='shard'){
+        dmLog(`🔮 アーカイブの欠片を手に入れた！(解読で単語を発見できる)`);
+        showRareFind();
+      }else{
+        dmLog(`${def.icon} ${def.jp}を手に入れた！`);
+        if(it.id==='great_herb')showRareFind(); // Phase22: レアアイテム演出
+      }
     }else{
       DM.pending='inv_full';
       DM.pendingPickup={x,y};
@@ -799,11 +853,12 @@ function dmTryPickupItems(x,y){
   }
 }
 // プレイヤーの位置にアイテムをn個設置する(同マス複数アイテム可・視覚的に重ね表示される)
-function dmPlaceItemsOnFloor(id,n,pos){
+// Phase26: meta(装備レアリティ・欠片のダンジョンID等)を保持したまま床に戻せるようにした
+function dmPlaceItemsOnFloor(id,n,pos,meta){
   const fl=DM.floors[DM.floor];
   if(!fl||!pos)return;
   if(!fl.items)fl.items=[];
-  for(let i=0;i<n;i++)fl.items.push({x:pos.x,y:pos.y,id});
+  for(let i=0;i<n;i++)fl.items.push({x:pos.x,y:pos.y,id,meta});
 }
 
 // 指定座標が敵の移動先として有効か(壁・プレイヤー・他の敵がいないか)を判定

@@ -234,13 +234,14 @@
               <button class="dmb dmb-down" data-dmdir="down">▼</button>
               <button class="dmb dmb-downright" data-dmdir="downright">↘</button>
             </div>
-            <!-- SFC風ボタン配置: A(右,大)=決定/攻撃、B(下)=待機 -->
+            <!-- SFC風ボタン配置: A(右,大)=決定/攻撃、B(下)=待機、M(左下)=メニュー(大型・常設) -->
             <div class="dm-action-pad">
               <button class="dmb-act dmb-a" id="dm-act" onclick="dma()">A</button>
               <button class="dmb-act dmb-b" onclick="dmWait()" title="待機(Space)">B</button>
+              <button class="dmb-act dmb-m" onclick="openCharMenu()" title="メニュー(持ち物・装備)">☰</button>
             </div>
           </div>
-          <div class="dm-cdr-label">移動 / 攻撃(A) / 待機(B)</div>
+          <div class="dm-cdr-label">移動 ／ A=攻撃・決定 ／ B=待機 ／ ☰=メニュー</div>
         </div>
         <div class="dm-console">
           <div class="dm-log" id="dm-log"></div>

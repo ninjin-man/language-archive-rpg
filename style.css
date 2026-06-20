@@ -315,15 +315,17 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
   touch-action:none;user-select:none;-webkit-user-select:none;text-shadow:0 1px 2px rgba(0,0,0,.4)}
 .dmb-act:active{transform:translateY(1px);box-shadow:0 1px 3px rgba(0,0,0,.5),inset 0 2px 4px rgba(0,0,0,.3)}
 .dmb-act:hover{filter:brightness(1.08)}
-/* SFC風: A(攻撃/決定)=赤を右、B(待機)=黄を下 */
-.dm-action-pad{position:relative;width:120px;height:108px;flex-shrink:0;margin-left:auto;
+/* SFC風: A(攻撃/決定)=赤を右、B(待機)=黄を下、☰(メニュー)=青を左下に大きく常設 */
+.dm-action-pad{position:relative;width:140px;height:120px;flex-shrink:0;margin-left:auto;
   background:radial-gradient(circle at 50% 45%,#c3c8d2,#9097a4);
   border:1px solid #7a808e;border-radius:50%;
   box-shadow:inset 0 1px 2px rgba(255,255,255,.5),inset 0 -2px 5px rgba(0,0,0,.25),0 4px 10px rgba(0,0,0,.4)}
-.dm-action-pad .dmb-a{top:14px;right:8px;
+.dm-action-pad .dmb-a{top:10px;right:8px;
   background:radial-gradient(circle at 38% 32%,#ff7a8e,#c0344a)}
-.dm-action-pad .dmb-b{bottom:10px;left:18px;width:48px;height:48px;font-size:18px;
+.dm-action-pad .dmb-b{bottom:8px;right:22px;width:48px;height:48px;font-size:18px;
   background:radial-gradient(circle at 38% 32%,#ffcf6a,#d99320)}
+.dm-action-pad .dmb-m{top:30px;left:6px;width:50px;height:50px;font-size:22px;
+  background:radial-gradient(circle at 38% 32%,#7ad0ff,#3a7ec0)}
 
 /* ════ §5 DUNGEON MAP — luxury redesign ════ */
 .dmov{display:none;position:fixed;inset:0;z-index:800;
@@ -858,10 +860,11 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
   .dm-pad-row{justify-content:space-between;width:100%;gap:6px;padding:8px 10px;border-radius:14px}
   .dm-dpad{gap:3px}
   .dm-cdr-label{font-size:7px;margin-top:2px}
-  /* SFC風アクションパッド(攻撃/決定=A, 待機=B)をモバイル幅向けに調整。十字キーは左端、本パッドは右端に固定表示される */
-  .dm-action-pad{width:104px;height:96px}
-  .dm-action-pad .dmb-a{top:12px;right:6px}
-  .dm-action-pad .dmb-b{bottom:8px;left:14px}
+  /* SFC風アクションパッド(A=攻撃/決定, B=待機, ☰=メニュー)をモバイル幅向けに調整。十字キーは左端、本パッドは右端に固定表示される */
+  .dm-action-pad{width:122px;height:110px}
+  .dm-action-pad .dmb-a{top:8px;right:6px}
+  .dm-action-pad .dmb-b{bottom:6px;right:18px}
+  .dm-action-pad .dmb-m{top:26px;left:4px;width:46px;height:46px;font-size:20px}
   /* ログ: 1行表示(最新メッセージのみ見せる)。行の実高さ(font10px+padding+border)に対して
      余裕を持たせ、テキストの上下が切れないようにする */
   .dm-log{max-height:21px;overflow:hidden}
@@ -875,9 +878,10 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
   .dmb{width:40px;height:40px;font-size:15px}
   .dm-dpad{grid-template-columns:40px 40px 40px;grid-template-rows:40px 40px 40px;gap:4px}
   .dmb-act{width:46px;height:46px;font-size:17px}
-  .dm-action-pad{width:96px;height:88px}
-  .dm-action-pad .dmb-a{top:10px;right:5px}
-  .dm-action-pad .dmb-b{width:42px;height:42px;font-size:15px;bottom:7px;left:12px}
+  .dm-action-pad{width:112px;height:102px}
+  .dm-action-pad .dmb-a{top:7px;right:5px}
+  .dm-action-pad .dmb-b{width:42px;height:42px;font-size:15px;bottom:6px;right:16px}
+  .dm-action-pad .dmb-m{width:42px;height:42px;font-size:18px;top:24px;left:3px}
   .dm-pad-row{gap:6px;padding:6px 8px}
 }
 
@@ -897,6 +901,15 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .cact.secondary{background:var(--s4);color:var(--t0);border:1px solid var(--b1)}
 .cact.secondary:hover{background:var(--s5);border-color:var(--t2)}
 .cm-back{width:100%;margin-top:4px;opacity:.8}
+
+/* ── Phase26: 装備メニュー ── */
+.eq-list{display:flex;flex-direction:column;gap:12px;margin-bottom:12px}
+.eq-row{background:var(--s2);border:1px solid var(--b0);border-radius:8px;padding:10px}
+.eq-slot-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.eq-slot-label{font-size:12px;font-weight:700;color:var(--gold-hi);letter-spacing:.04em}
+.eq-cur{font-size:13px;color:var(--t2);margin-bottom:8px}
+.eq-cur.on{color:var(--t0)}
+.eq-stat{font-size:10px;color:var(--cyan);font-weight:700}
 .stat-lv{font-size:20px;font-weight:800;color:var(--gold-hi);text-align:center;margin-bottom:12px}
 .stat-row{display:flex;justify-content:space-between;font-size:13px;color:var(--t1);
   padding:8px 4px;border-bottom:1px solid var(--b0)}
