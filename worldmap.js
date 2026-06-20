@@ -228,7 +228,11 @@ WT_COL[WT.ROAD]='#c2a060';WT_COL[WT.TOWN]='#b85c3c';WT_COL[WT.SNOW]='#dfe8f0';
 
 /* ════════ 地形描画(キャッシュ) ════════ */
 function wmTerrainStateKey(){
-  return WMAP.regions.map(function(r){return r.cat+':'+Math.round(wmCategoryRepair(r.cat)*20)}).join('|')+'@'+WMAP.GW+'x'+WMAP.GH;
+  // 修復度の状態に加え、キャンバスの実ピクセル寸法も含める。
+  // これによりサイズ変化(回転/アドレスバー伸縮/初回レイアウト確定)時に
+  // 地形キャッシュが自動で再生成され、古いサイズのキャッシュが残らない。
+  var cw=WMAP.canvas?WMAP.canvas.width:0, ch=WMAP.canvas?WMAP.canvas.height:0;
+  return WMAP.regions.map(function(r){return r.cat+':'+Math.round(wmCategoryRepair(r.cat)*20)}).join('|')+'@'+WMAP.GW+'x'+WMAP.GH+'#'+cw+'x'+ch;
 }
 function wmInvalidateTerrain(){ WMAP.terrainKey=''; }
 function wmDrawTile(ctx, t, px, py, ts, repair, region){
@@ -289,10 +293,11 @@ function wmDraw(){
   var ctx=WMAP.ctx;
   if(!WMAP.grid)return;
   if(WMAP.terrainKey!==wmTerrainStateKey()) wmRenderTerrainCache(w,h,dpr);
-  ctx.setTransform(1,0,0,1,0,0);
-  ctx.clearRect(0,0,WMAP.canvas.width,WMAP.canvas.height);
-  ctx.drawImage(WMAP.terrainCanvas,0,0);
   ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.clearRect(0,0,w,h);
+  // 地形キャッシュを論理座標(w×h)で転写。オフスクリーンは物理(w*dpr)で持つので、
+  // ソース矩形を物理全域、宛先を論理全域に指定してdpr整合を保つ(iOS Safari安定)。
+  ctx.drawImage(WMAP.terrainCanvas, 0,0, WMAP.terrainCanvas.width, WMAP.terrainCanvas.height, 0,0, w, h);
   var ts=wmTileSize(w,h); var o=wmOrigin(w,h,ts);
   var tnow=(Date.now()-WMAP.t0)/1000;
   if(WMAP.selected){
@@ -417,6 +422,7 @@ function WM_show(){
   if(!wmGetCanvas())return;
   if(!WMAP.grid)wmBuildLayout();
   WMAP.running=true; WMAP.t0=Date.now();
+  wmInvalidateTerrain(); // 表示のたびにキャッシュを無効化し、現在の実寸で焼き直す
   wmRenderPanel();
   if(!WMAP.raf)wmLoop();
 }
