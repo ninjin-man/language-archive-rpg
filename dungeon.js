@@ -455,8 +455,20 @@ function dmUpdatePlayerSprite(){
 let _dmWalkTimer=null;
 const DM_WALK_FRAMES=['walk1','walk2','walk3','walk4'];
 const DM_WALK_FRAME_MS=90;
+/* ════ 斜め移動対応(8方向) ════
+   - 移動方向(dir)は up/down/left/right に加え upleft/upright/downleft/downright を扱う。
+   - プレイヤースプライトシートは4方向(down/up/left/right)分しかコマが無いため、
+     斜め方向は見た目上もっとも近い水平方向(left/right)へ寄せて表示する。 */
+const DM_DIR_DELTA={
+  up:[0,-1], down:[0,1], left:[-1,0], right:[1,0],
+  upleft:[-1,-1], upright:[1,-1], downleft:[-1,1], downright:[1,1],
+};
+const DM_SPRITE_DIR_MAP={
+  up:'up', down:'down', left:'left', right:'right',
+  upleft:'left', upright:'right', downleft:'left', downright:'right',
+};
 function dmPlayWalkAnim(dir){
-  DM.anim.dir=dir;
+  DM.anim.dir=DM_SPRITE_DIR_MAP[dir]||dir;
   if(_dmWalkTimer){clearInterval(_dmWalkTimer);_dmWalkTimer=null}
   let i=0;
   DM.anim.frame=DM_WALK_FRAMES[0];
@@ -473,7 +485,7 @@ function dmPlayWalkAnim(dir){
 }
 const DM_ATTACK_ANIM_MS=220;
 function dmPlayAttackAnim(dir){
-  DM.anim.dir=dir;
+  DM.anim.dir=DM_SPRITE_DIR_MAP[dir]||dir;
   if(_dmWalkTimer){clearInterval(_dmWalkTimer);_dmWalkTimer=null}
   DM.anim.frame='attack';
   dmUpdatePlayerSprite();
@@ -624,13 +636,17 @@ function dmv(dir){
   if(DM.pending)return;
   const fl=DM.floors[DM.floor];if(!fl)return;
   const {grid:g,explored,playerPos:p}=fl;
-  let nx=p.x,ny=p.y;
-  if(dir==='up')ny--;else if(dir==='down')ny++;
-  else if(dir==='left')nx--;else if(dir==='right')nx++;
+  const delta=DM_DIR_DELTA[dir];
+  if(!delta)return;
+  const nx=p.x+delta[0],ny=p.y+delta[1];
   if(ny<0||ny>=GH||nx<0||nx>=GW)return;
   const dest=g[ny][nx];
   if(dest===CELL.WALL)return;
-  DM.anim.dir=dir; // Phase24: 移動・攻撃どちらでも向きを更新
+  // 斜め移動: 両隣の直交マスのどちらかが壁なら、壁の角をすり抜けられないようにする
+  if(delta[0]!==0&&delta[1]!==0){
+    if(g[p.y][nx]===CELL.WALL||g[ny][p.x]===CELL.WALL)return;
+  }
+  DM.anim.dir=DM_SPRITE_DIR_MAP[dir]||dir; // Phase24: 移動・攻撃どちらでも向きを更新
   // 接触攻撃(MVPローグライク化): 移動先に生存中の敵がいれば、移動せず即攻撃してターンを消費する
   const enemyHere=(fl.enemies||[]).find(e=>e.curHp>0&&e.x===nx&&e.y===ny);
   if(enemyHere){
@@ -697,8 +713,8 @@ function dmContactAttack(enemy,dir){
   const playerAtk=getPlayerAtk();
   const dmg=Math.max(1,playerAtk-(enemy.def||0));
   enemy.curHp-=dmg;
-  const ddx=dir==='left'?-1:dir==='right'?1:0;
-  const ddy=dir==='up'?-1:dir==='down'?1:0;
+  const ddxy=DM_DIR_DELTA[dir]||[0,0];
+  const ddx=ddxy[0],ddy=ddxy[1];
   dmShowFloatDamage(Math.floor(VW/2)+ddx,Math.floor(VH/2)+ddy,dmg,'enemy');
   dmLog(`⚔ ${enemy.name}に${dmg}ダメージ！`);
   if(enemy.curHp<=0){
@@ -1004,7 +1020,9 @@ function resolveEventChoice(choice){
 const DM_KEY_DIR={
   'ArrowUp':'up','ArrowDown':'down','ArrowLeft':'left','ArrowRight':'right',
   'w':'up','s':'down','a':'left','d':'right',
-  'W':'up','S':'down','A':'left','D':'right'
+  'W':'up','S':'down','A':'left','D':'right',
+  'q':'upleft','e':'upright','z':'downleft','c':'downright',
+  'Q':'upleft','E':'upright','Z':'downleft','C':'downright'
 };
 const DM_REPEAT_DELAY=250;   // 初回入力からリピート開始までの遅延(ms)
 const DM_REPEAT_INTERVAL=120;// リピート間隔(ms)

@@ -40,6 +40,7 @@ function crGetCanvas(){
 }
 function crLoadImage(src){
   const img = new Image();
+  img.onload = () => { if (typeof Renderer!=='undefined' && Renderer===CanvasRenderer) crDraw(); };
   img.src = src;
   return img;
 }
@@ -108,6 +109,19 @@ function crCoverDraw(ctx,img,x,y,s){
   ctx.clip();
   ctx.drawImage(img, x+(s-dw)/2, y+(s-dh)/2, dw, dh);
   ctx.restore();
+}
+// CSSの .dwa は wall.png の上に rgba(15,25,60,.55) の暗いオーバーレイを重ねている
+// (linear-gradient(rgba(15,25,60,.55),rgba(15,25,60,.55)), url(wall.png), ...)。
+// これが無いと壁画像が床画像(floor.png)と見分けがつきにくくなるため、Canvas側でも必ず再現する。
+function crDrawWallTile(ctx,wallImg,px,py,cell){
+  if (crImgReady(wallImg)){
+    crCoverDraw(ctx,wallImg,px,py,cell);
+    ctx.fillStyle='rgba(15,25,60,.55)';
+    crRoundRectPath(ctx,px,py,cell,cell,Math.max(2,cell*0.16));
+    ctx.fill();
+  } else {
+    crFillGrad(ctx,px,py,cell,CR_COL.wall1,CR_COL.wall2);
+  }
 }
 // ctx.filterはiOS Safariでの対応状況が不安定なため使わず、黒の半透明オーバーレイで明度を近似する
 function crDarken(ctx,x,y,s,bright){
@@ -184,8 +198,7 @@ function crDraw(){
     const px=vx*cell, py=vy*cell;
 
     if (mx<0||mx>=GW||my<0||my>=GH){
-      if (crImgReady(wallImg)) crCoverDraw(ctx,wallImg,px,py,cell);
-      else crFillGrad(ctx,px,py,cell,CR_COL.wall1,CR_COL.wall2);
+      crDrawWallTile(ctx,wallImg,px,py,cell);
       continue;
     }
     const key=`${mx},${my}`;
@@ -202,8 +215,7 @@ function crDraw(){
 
     // 背景タイル(画像があればcover表示、無ければグラデーションのフォールバック)
     if (t===CELL.WALL){
-      if (crImgReady(wallImg)) crCoverDraw(ctx,wallImg,px,py,cell);
-      else crFillGrad(ctx,px,py,cell,CR_COL.wall1,CR_COL.wall2);
+      crDrawWallTile(ctx,wallImg,px,py,cell);
     } else {
       if (crImgReady(floorImg)) crCoverDraw(ctx,floorImg,px,py,cell);
       else crFillGrad(ctx,px,py,cell,CR_COL.floor1,CR_COL.floor2);
