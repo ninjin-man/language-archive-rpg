@@ -72,7 +72,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 /* ══════════════════════════════════════════════════════
    SPHERE GRID — FF10-style archive board (PhaseA)
    ══════════════════════════════════════════════════════ */
-#s-arc{position:relative}
+#s-arc{position:relative;height:100%;min-height:0}
 #sg-host{position:absolute;inset:0;
   background:
     radial-gradient(ellipse 70% 60% at 50% 45%,rgba(200,168,75,.04) 0%,transparent 62%),

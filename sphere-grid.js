@@ -141,14 +141,16 @@ function sgApplyVB() {
   svg.setAttribute('viewBox', `${SG.vb.x} ${SG.vb.y} ${SG.vb.w} ${SG.vb.h}`);
 }
 function sgInitView() {
-  const svg = sgGetSvg(); if (!svg) return;
+  const svg = sgGetSvg(); if (!svg) return false;
   const rect = svg.getBoundingClientRect();
-  const aspect = (rect.width && rect.height) ? rect.width / rect.height : 1;
+  if (!rect.width || !rect.height) return false;   // layout not ready yet — caller should retry
+  const aspect = rect.width / rect.height;
   // frame on the cursor, zoomed in (FFX shows a local area, not the whole board)
   const cur = sgCursorWord(), p = SG.pos[cur];
   const viewW = 520, viewH = viewW / aspect;
   SG.vb = { x: p.x - viewW / 2, y: p.y - viewH / 2, w: viewW, h: viewH };
   sgApplyVB();
+  return true;
 }
 function sgClampZoom(w) {
   const min = 260, max = Math.max(SG.contentBox.w, SG.contentBox.h) * 1.4;
@@ -167,7 +169,12 @@ function renderArc() {
        </svg>`;
     sgBindPanZoom();
   }
-  if (!SG.vb) sgInitView();
+  if (!SG.vb && !sgInitView()) {
+    // SVG hasn't been laid out yet (e.g. first paint before CSS/flex sizing settles).
+    // Retry next frame instead of drawing with a broken viewBox.
+    requestAnimationFrame(() => { if (S.screen === 'arc') renderArc(); });
+    return;
+  }
   sgDraw();
   sgRenderMini();
   sgUpdateHdr();
@@ -190,8 +197,9 @@ function sgDraw() {
       const a = SG.pos[w], b = SG.pos[o]; if (!a || !b) return;
       const sameCat = WM[w].archive === WM[o].archive;
       const lit = gst(w) !== 'unknown' && gst(o) !== 'unknown';
-      const col = lit ? SG.catColor[WM[w].archive] : '#1a2236';
-      const op = lit ? 0.8 : 0.22, wid = lit ? 3 : 2;
+      const reach = sgIsReachable(w) || sgIsReachable(o);
+      const col = lit ? SG.catColor[WM[w].archive] : (reach ? '#5d6890' : '#384066');
+      const op = lit ? 0.85 : (reach ? 0.65 : 0.45), wid = lit ? 3 : 2;
       const line = `<line x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}" stroke="${col}" stroke-width="${wid}" opacity="${op}" stroke-linecap="round"${lit ? '' : ' stroke-dasharray="3 7"'}/>`;
       if (sameCat) paths += line; else bridges += line;
     });
@@ -206,16 +214,16 @@ function sgDraw() {
     const isCur = w.word === cur;
     const sel = w.word === SG.sel;
     const mcol = ['#1c2236', '#4dc8e0', '#1e5090', '#c8a84b', '#e0982a'][si];
-    const fill = unk ? '#0c111f' : `${mcol}`;
-    const ringOp = reachable ? 1 : (unk ? 0.5 : 0.85);
+    const fill = unk ? (reachable ? '#181f38' : '#0e1322') : `${mcol}`;
+    const ringOp = reachable ? 1 : (unk ? 0.85 : 0.85);
     // halo for skilled/master
     if (si >= 3) nodes += `<circle cx="${p.x}" cy="${p.y}" r="${SG.NODE_R + (si === 4 ? 11 : 7)}" fill="${mcol}" opacity="0.16"/>`;
     // reachable pulse ring
     if (reachable && !isCur) nodes += `<circle cx="${p.x}" cy="${p.y}" r="${SG.NODE_R + 5}" fill="none" stroke="${col}" stroke-width="1.5" opacity="0.5" class="sg-reach"/>`;
     nodes += `<g class="sg-node${reachable ? ' reach' : ''}" data-w="${w.word}" style="cursor:${reachable || !unk ? 'pointer' : 'default'}">
-        <circle cx="${p.x}" cy="${p.y}" r="${SG.NODE_R}" fill="${fill}" fill-opacity="${unk ? 0.85 : 0.32}"
-          stroke="${unk ? (reachable ? '#48507a' : '#232b42') : col}" stroke-width="${sel ? 4 : 2.5}" opacity="${ringOp}"/>
-        ${unk ? `<text x="${p.x}" y="${p.y + 5}" text-anchor="middle" font-size="15" fill="#48507a" opacity="${reachable ? 0.9 : 0.4}">?</text>`
+        <circle cx="${p.x}" cy="${p.y}" r="${SG.NODE_R}" fill="${fill}" fill-opacity="${unk ? 0.9 : 0.32}"
+          stroke="${unk ? (reachable ? '#8a96c8' : '#454d78') : col}" stroke-width="${sel ? 4 : 2.5}" opacity="${ringOp}"/>
+        ${unk ? `<text x="${p.x}" y="${p.y + 5}" text-anchor="middle" font-size="15" fill="${reachable ? '#c4cbe8' : '#6b7498'}" opacity="0.95">?</text>`
         : `<text x="${p.x}" y="${p.y + 5}" text-anchor="middle" font-size="14">${CICON[w.archive] || '•'}</text>`}
       </g>`;
     if (!unk) labels += `<text x="${p.x}" y="${p.y + SG.NODE_R + 13}" text-anchor="middle" font-size="11" font-weight="700" fill="${col}" opacity="0.95">${w.word}</text>`;
