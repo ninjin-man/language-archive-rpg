@@ -262,8 +262,10 @@ function go(name){
   document.querySelectorAll('.nb').forEach(b=>b.classList.remove('on'));
   document.getElementById('s-'+name).classList.add('on');
   document.querySelectorAll('.nb').forEach(b=>{if(b.getAttribute('onclick')?.includes("'"+name+"'"))b.classList.add('on')});
+  // The Archive Atlas(世界地図): 探索タブを抜けたら描画ループを止める(他画面では不要な再描画を防ぐ)
+  if(name!=='exp' && typeof WM_hide==='function')WM_hide();
   if(name==='arc')renderArc();
-  else if(name==='exp')renderExp();
+  else if(name==='exp'){renderExp();if(typeof WM_show==='function')WM_show();}
   else if(name==='cft')renderCft();
   else if(name==='skill')renderSkillLab();
   else if(name==='job')renderJobs();

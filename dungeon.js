@@ -164,6 +164,7 @@ function closeDmap(reason){
     save();
   }
   renderExp();
+  if(typeof WM_show==='function')WM_show(); // The Archive Atlas: ダンジョンから帰還したら世界地図の描画ループを再開
 }
 
 /* BSP dungeon generation */

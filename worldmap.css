@@ -1,0 +1,152 @@
+/* ════════════════════════════════════════════════════════════════════
+   WORLD MAP — 「The Archive Atlas / 記憶の地図」 スタイル
+   既存の style.css のデザイントークン(--bg-void 等)に準拠。
+   worldmap.js とセット。
+
+   ── 配置前提(重要) ──
+   #s-exp は独立画面ではなく、既存の「探索」タブの中身(#s-exp{overflow:auto})。
+   ワールドマップは画面全体ではなく、#s-exp の最上部にある1ブロック(#wm-block)
+   として配置され、その下にダンジョン記録・カード一覧・レリックが続けて
+   スクロール表示される。そのためワールドマップは「画面占有」ではなく
+   「固定高さの矩形」として振る舞う設計にしている。
+
+   モバイル方針:
+   ・高さは dvh ベースでビューポートの大半を確保しつつ、下に必ず
+     ダンジョン一覧へのスクロール余地が見える高さに収める。
+   ・Canvas は短辺フィットの正方形。横幅も縦も超えない。
+   ・パネルは内容が増えても #wm-block を割らないよう内部スクロール。
+   ・safe-area(ノッチ/ホームバー)を考慮。
+════════════════════════════════════════════════════════════════════ */
+
+#wm-block{
+  display:flex; flex-direction:column;
+  /* ビューポートの6割程度を確保。#s-exp 自体がスクロールするため
+     画面いっぱいにせず、下に続くダンジョン一覧が見えるようにする。 */
+  height:60dvh;
+  height:60vh; /* フォールバック */
+  min-height:380px;
+  max-height:640px;
+  width:100%;
+  background:var(--bg-void,#0a0c12);
+  color:var(--text-bright,#e8eaf0);
+  border:1px solid var(--border-dim,#1e2a45);
+  border-radius:12px;
+  overflow:hidden;
+  margin-bottom:16px;
+  -webkit-text-size-adjust:100%;
+}
+
+/* 上部の小見出し(コンセプト提示) */
+.wm-banner{
+  flex:0 0 auto;
+  text-align:center;
+  padding:8px 12px 6px;
+  border-bottom:1px solid var(--border-dim,#1e2a45);
+}
+.wm-banner .wm-title{
+  font-size:14px; font-weight:700; letter-spacing:0.06em;
+  color:var(--accent-gold,#c8a84b);
+}
+.wm-banner .wm-tagline{
+  font-size:10.5px; color:var(--text-mid,#8a94b0); margin-top:2px;
+  line-height:1.3;
+}
+
+/* Canvas ラッパ: 残り高をすべて使い、中央に正方形Canvasを置く。 */
+#wm-canvas-wrap{
+  position:relative;
+  flex:1 1 auto;
+  display:flex; align-items:center; justify-content:center;
+  min-height:0;
+  overflow:hidden;
+  padding:6px;
+}
+#wm-canvas{
+  display:block;
+  height:100%;
+  max-height:100%;
+  width:auto;
+  max-width:100%;
+  aspect-ratio:1/1;
+  touch-action:manipulation;
+  -webkit-tap-highlight-color:transparent;
+  cursor:pointer;
+}
+
+/* 下部の選択リージョン情報パネル(#wm-block内に収まる、独自スクロール) */
+#wm-panel{
+  flex:0 0 auto;
+  background:var(--bg-panel,#141826);
+  border-top:1px solid var(--border-dim,#1e2a45);
+  padding:10px 12px;
+  max-height:38%;
+  overflow-y:auto;
+  -webkit-overflow-scrolling:touch;
+}
+.wm-p-head{ display:flex; align-items:center; gap:10px; }
+.wm-p-icon{
+  width:36px; height:36px; flex:0 0 36px;
+  display:flex; align-items:center; justify-content:center;
+  font-size:20px; border-radius:10px;
+  border:1px solid var(--border-dim,#1e2a45);
+}
+.wm-p-name{ font-size:14px; font-weight:700; }
+.wm-p-sub{ font-size:10.5px; color:var(--text-mid,#8a94b0); margin-top:1px; }
+
+.wm-p-bar{
+  margin:8px 0 6px; height:7px; border-radius:4px;
+  background:rgba(255,255,255,0.07); overflow:hidden;
+}
+.wm-p-bar-fill{ height:100%; border-radius:4px; transition:width 0.5s ease; }
+
+.wm-p-stats{ font-size:11.5px; color:var(--text-mid,#8a94b0); line-height:1.4; }
+
+.wm-p-dungeons{ display:flex; flex-direction:column; gap:6px; margin-top:8px; }
+.wm-dn-btn{
+  display:flex; justify-content:space-between; align-items:center; gap:8px;
+  width:100%; text-align:left;
+  background:var(--bg-card,#1a2035);
+  border:1px solid var(--border-glow,#2a4080);
+  color:var(--text-bright,#e8eaf0);
+  border-radius:8px;
+  padding:10px 12px;
+  min-height:44px; /* 指で押しやすい高さ */
+  font-size:13px; cursor:pointer;
+  transition:background 0.18s ease, border-color 0.18s ease;
+  -webkit-tap-highlight-color:transparent;
+}
+.wm-dn-btn:active{ background:var(--bg-hover,#1f2844); }
+@media (hover:hover){ .wm-dn-btn:hover{ background:var(--bg-hover,#1f2844); } }
+.wm-dn-btn.wm-dn-locked{
+  border-color:var(--border-dim,#1e2a45);
+  color:var(--text-dim,#445070);
+  cursor:default;
+}
+.wm-dn-name{ font-weight:600; }
+.wm-dn-meta{ font-size:10.5px; color:var(--text-mid,#8a94b0); white-space:nowrap; flex:0 0 auto; }
+
+.wm-p-hint{
+  margin-top:8px; font-size:10.5px; color:var(--text-dim,#445070);
+  line-height:1.4;
+}
+
+/* ── 小画面: ブロック高をやや圧縮 ── */
+@media (max-width:430px){
+  #wm-block{ height:54dvh; height:54vh; min-height:340px; }
+}
+
+/* ── 横向き(ランドスケープ)かつ低い高さ: パネルを薄くしCanvasを優先 ── */
+@media (orientation:landscape) and (max-height:480px){
+  #wm-block{ height:80dvh; height:80vh; }
+  .wm-banner{ padding:4px 12px; }
+  .wm-banner .wm-tagline{ display:none; }
+  #wm-panel{ max-height:46%; padding:8px 12px; }
+}
+
+/* ── 極小画面(iPhone SE 等, 幅≤340px): 文字をさらに詰める ── */
+@media (max-width:340px){
+  .wm-banner .wm-title{ font-size:13px; }
+  .wm-p-name{ font-size:13px; }
+  .wm-dn-btn{ font-size:12px; padding:9px 10px; }
+  .wm-dn-meta{ font-size:10px; }
+}

@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,viewport-fit=cover">
 <title>Language Archive RPG</title>
 <link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="worldmap.css">
+<link rel="stylesheet" href="worldmap.css">
 </head>
 <body>
 <div id="root">
@@ -82,7 +84,20 @@
 </div>
 
 <!-- EXPLORE -->
-<div id="s-exp" class="scr"><div class="sec-h">ダンジョン</div><div class="dr-grid" id="dungeon-records"></div><div class="dg" id="dg"></div><div class="sec-h" style="margin-top:14px">レリック</div><div class="relic-grid" id="relic-grid"></div></div>
+<div id="s-exp" class="scr">
+  <!-- The Archive Atlas: 忘却の霧に沈んだ世界を、語彙の光で取り戻す世界地図。
+       土地(=語彙アーカイブの各カテゴリ)をタップしてダンジョンへ。
+       既存の探索記録・レリックはこの下にそのまま残す。 -->
+  <div id="wm-block">
+    <div class="wm-banner">
+      <div class="wm-title">THE ARCHIVE ATLAS</div>
+      <div class="wm-tagline">忘却の霧に沈んだ世界を、語彙の光で取り戻せ</div>
+    </div>
+    <div id="wm-canvas-wrap"><canvas id="wm-canvas"></canvas></div>
+    <div id="wm-panel"></div>
+  </div>
+  <div class="sec-h">ダンジョン</div><div class="dr-grid" id="dungeon-records"></div><div class="dg" id="dg"></div><div class="sec-h" style="margin-top:14px">レリック</div><div class="relic-grid" id="relic-grid"></div>
+</div>
 
 <!-- CRAFT -->
 <div id="s-cft" class="scr" style="overflow:auto;padding:12px">
@@ -301,6 +316,7 @@
 <script src="skills.js"></script>
 <script src="jobs.js"></script>
 <script src="ui.js"></script>
+<script src="worldmap.js"></script>
 <script>
   // archive_v2プロトタイプ表示用(既存JSとは独立、ArchiveData等の名前空間に影響なし)
   function openArcV2() {
