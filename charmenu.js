@@ -150,7 +150,7 @@ function openInvFullPrompt(){
     <div class="inv-list">${slots.map((s,i)=>{
       const def=getItemDef(s.id);if(!def)return'';
       return `<div class="inv-full-row">
-        <span class="inv-full-name">${def.icon} ${def.jp} ×${s.count}</span>
+        <span class="inv-full-name">${invSlotLabel(s)} ×${s.count}</span>
         <button class="cact small" onclick="resolveInvFullDrop(${i})">置く</button>
       </div>`;
     }).join('')}</div>

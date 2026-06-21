@@ -32,8 +32,6 @@ var WT = { OCEAN:0, WATER:1, SAND:2, GRASS:3, FOREST:4, MOUNT:5, ROAD:6, TOWN:7,
 
 var WMAP = {
   canvas:null, ctx:null,
-  terrainCanvas:null, terrainCtx:null,
-  terrainKey:'',
   running:false, raf:null,
   grid:null, region:null,
   GW:18, GH:18,
@@ -165,7 +163,7 @@ function wmBuildLayout(){
   WMAP.current=startCat; WMAP.selected=startCat;
   var cr=WMAP.regions.find(function(r){return r.cat===startCat});
   if(cr){WMAP.avatar.x=cr.cx;WMAP.avatar.y=cr.cy;}
-  WMAP.terrainKey='';
+  /* 地形は直接描画方式 */
 }
 function wmConnectRoads(){
   var rs=WMAP.regions;
@@ -226,15 +224,10 @@ WT_COL[WT.OCEAN]='#1c3a6e';WT_COL[WT.WATER]='#2f6fb0';WT_COL[WT.SAND]='#d8c48a';
 WT_COL[WT.GRASS]='#5a9e4b';WT_COL[WT.FOREST]='#2f6e38';WT_COL[WT.MOUNT]='#8a7d6b';
 WT_COL[WT.ROAD]='#c2a060';WT_COL[WT.TOWN]='#b85c3c';WT_COL[WT.SNOW]='#dfe8f0';
 
-/* ════════ 地形描画(キャッシュ) ════════ */
-function wmTerrainStateKey(){
-  // 修復度の状態に加え、キャンバスの実ピクセル寸法も含める。
-  // これによりサイズ変化(回転/アドレスバー伸縮/初回レイアウト確定)時に
-  // 地形キャッシュが自動で再生成され、古いサイズのキャッシュが残らない。
-  var cw=WMAP.canvas?WMAP.canvas.width:0, ch=WMAP.canvas?WMAP.canvas.height:0;
-  return WMAP.regions.map(function(r){return r.cat+':'+Math.round(wmCategoryRepair(r.cat)*20)}).join('|')+'@'+WMAP.GW+'x'+WMAP.GH+'#'+cw+'x'+ch;
-}
-function wmInvalidateTerrain(){ WMAP.terrainKey=''; }
+/* ════════ 地形描画 ════════ */
+// 旧オフスクリーンキャッシュ方式は廃止し、地形は毎フレーム直接描画する。
+// 互換のため wmInvalidateTerrain は残すが、直接描画では何もする必要がない(no-op)。
+function wmInvalidateTerrain(){ /* no-op: 直接描画方式ではキャッシュが無いため不要 */ }
 function wmDrawTile(ctx, t, px, py, ts, repair, region){
   var base=WT_COL[t]||'#444';
   if(region!==null && t!==WT.OCEAN){
@@ -257,33 +250,29 @@ function wmDrawTile(ctx, t, px, py, ts, repair, region){
     ctx.beginPath();ctx.moveTo(px+ts*0.2,py+ts*0.6);ctx.lineTo(px+ts*0.5,py+ts*0.6);ctx.stroke();
   }
 }
-function wmRenderTerrainCache(w,h,dpr){
+// 地形をメインCanvasに直接描画する(オフスクリーンキャッシュは廃止)。
+// iOS Safariで大きなオフスクリーンCanvasのdrawImageが空転送になる不具合を回避するため、
+// 324マス程度なら毎フレーム直接描いても軽量(ダンジョン描画と同等オーダー)。
+function wmDrawTerrain(ctx,w,h){
   var ts=wmTileSize(w,h); var o=wmOrigin(w,h,ts);
-  if(!WMAP.terrainCanvas){ WMAP.terrainCanvas=document.createElement('canvas'); WMAP.terrainCtx=WMAP.terrainCanvas.getContext('2d'); }
-  var tc=WMAP.terrainCanvas;
-  tc.width=Math.round(w*dpr); tc.height=Math.round(h*dpr);
-  var tx=WMAP.terrainCtx;
-  tx.setTransform(dpr,0,0,dpr,0,0);
-  tx.clearRect(0,0,w,h);
-  tx.fillStyle=WT_COL[WT.OCEAN]; tx.fillRect(0,0,w,h);
+  ctx.fillStyle=WT_COL[WT.OCEAN]; ctx.fillRect(0,0,w,h);
   var repCache={};
   for(var gy=0;gy<WMAP.GH;gy++)for(var gx=0;gx<WMAP.GW;gx++){
     var t=WMAP.grid[gy][gx];
     var reg=WMAP.region[gy][gx];
     var rep=0; if(reg!==null){ rep=(repCache[reg]!==undefined)?repCache[reg]:(repCache[reg]=wmCategoryRepair(reg)); }
-    wmDrawTile(tx, t, o.ox+gx*ts, o.oy+gy*ts, ts, rep, reg);
+    wmDrawTile(ctx, t, o.ox+gx*ts, o.oy+gy*ts, ts, rep, reg);
   }
   WMAP.regions.forEach(function(r){
     var rep=(repCache[r.cat]!==undefined)?repCache[r.cat]:wmCategoryRepair(r.cat);
     var icon=(typeof CICON!=='undefined'&&CICON[r.cat])?CICON[r.cat]:'🏰';
     var px=o.ox+r.cx*ts, py=o.oy+r.cy*ts;
-    tx.globalAlpha=0.4+rep*0.6;
-    tx.font=Math.max(10,Math.floor(ts*0.8))+'px sans-serif';
-    tx.textAlign='center';tx.textBaseline='middle';
-    tx.fillText(rep<0.05?'？':icon, px+ts/2, py+ts/2);
-    tx.globalAlpha=1;
+    ctx.globalAlpha=0.4+rep*0.6;
+    ctx.font=Math.max(10,Math.floor(ts*0.8))+'px sans-serif';
+    ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText(rep<0.05?'？':icon, px+ts/2, py+ts/2);
+    ctx.globalAlpha=1;
   });
-  WMAP.terrainKey=wmTerrainStateKey();
 }
 
 /* ════════ メイン描画 ════════ */
@@ -292,12 +281,9 @@ function wmDraw(){
   var w=size.w,h=size.h,dpr=size.dpr;
   var ctx=WMAP.ctx;
   if(!WMAP.grid)return;
-  if(WMAP.terrainKey!==wmTerrainStateKey()) wmRenderTerrainCache(w,h,dpr);
   ctx.setTransform(dpr,0,0,dpr,0,0);
   ctx.clearRect(0,0,w,h);
-  // 地形キャッシュを論理座標(w×h)で転写。オフスクリーンは物理(w*dpr)で持つので、
-  // ソース矩形を物理全域、宛先を論理全域に指定してdpr整合を保つ(iOS Safari安定)。
-  ctx.drawImage(WMAP.terrainCanvas, 0,0, WMAP.terrainCanvas.width, WMAP.terrainCanvas.height, 0,0, w, h);
+  wmDrawTerrain(ctx,w,h); // 地形を直接描画
   var ts=wmTileSize(w,h); var o=wmOrigin(w,h,ts);
   var tnow=(Date.now()-WMAP.t0)/1000;
   if(WMAP.selected){

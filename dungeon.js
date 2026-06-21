@@ -263,7 +263,9 @@ function generateFloor(f){
   // Special chest (低確率: Gold or 単語の直接獲得) — 改修: 探索ループ改善
   if(Math.random()<0.15)place(CELL.CHEST_GOLD);
   // Events
-  for(let i=0;i<2;i++)place(CELL.EVENT);
+  // Events: 廃止(Phase26)。石碑イベント(❓)はテンポを損なうため生成しない。
+  // 関連ハンドラ(showEventChoice/resolveEventChoice)はEVENTセルが存在しないため呼ばれない。
+  // for(let i=0;i<2;i++)place(CELL.EVENT);
   // Enemies (Phase7: capped since maxFloor is now 20)
   // 改修(MVPローグライク化): 敵は静的セルではなく動的エンティティとして配置し、
   // 自律移動(敵AI)・接触攻撃の対象にする。床タイル自体は変更しない。
@@ -320,7 +322,7 @@ function generateFloor(f){
   // ── Phase18: アイテム生成ルール改善 ──
   // アイテムは部屋限定・通路には出現しない。階層が深いほど多くの部屋に生成(探索価値を底上げ)。
   // 開始位置と重ならないよう除外。同一部屋内での同種過剰生成を抑制しつつ、選ばれた部屋には必ず1個以上配置する。
-  const itemDensity=f<5?0.3:f<10?0.45:0.6; // 低層30% / 中層45% / 高層60%の部屋に生成
+  const itemDensity=f<5?0.5:f<10?0.6:0.7; // Phase26.1: 低層50% / 中層60% / 高層70%(浅い階でも装備等に遭遇しやすく底上げ)
   const items=[];
   rooms.forEach(room=>{
     if(room.type!=='normal')return; // Phase23: 特殊部屋は専用ロジックで内容を生成するため対象外
@@ -394,15 +396,15 @@ function generateFloor(f){
 // 改修(Phase26): 戻り値を id文字列 から {id,meta} オブジェクトに変更し、装備のレアリティや
 //   欠片のダンジョンIDといった「床ドロップ固有の付帯情報」を持てるようにした。
 //   既存の薬草・パン等(metaなし)は {id} だけを返す。呼び出し側は both を受け付ける。
-// アイテム比率(仮設定): アーカイブの欠片10% / お金18% / 鉱石12% / 装備8% / 残り(消費アイテム)52%
+// アイテム比率(Phase26.1: 装備が見つかりやすいよう調整): アーカイブの欠片10% / お金16% / 鉱石12% / 装備20% / 残り(消費アイテム)42%
 function pickItemDrop(floor,placedTypes){
   // ── カテゴリ抽選(各カテゴリの出現比率) ──
   const r=Math.random()*100;
   if(r<10)return {id:'archive_shard',meta:{dungeonId:DM.dungeon?.id}};           // 10% 欠片
-  if(r<28)return {id:'gold_pile',meta:{amount:rollFloorGold(floor)}};            // 18% お金
-  if(r<40)return {id:pickOre(floor)};                                            // 12% 鉱石
-  if(r<48)return {id:pickEquip(),meta:{rarity:rollEquipRarity(floor)}};          // 8%  装備
-  // ── 残り52%: 従来の消費アイテム(薬草中心) ──
+  if(r<26)return {id:'gold_pile',meta:{amount:rollFloorGold(floor)}};            // 16% お金
+  if(r<38)return {id:pickOre(floor)};                                            // 12% 鉱石
+  if(r<58)return {id:pickEquip(),meta:{rarity:rollEquipRarity(floor)}};          // 20% 装備
+  // ── 残り42%: 従来の消費アイテム(薬草中心) ──
   const table=[{id:'herb',w:70},{id:'bread',w:10}];
   if(floor>=5)table.push({id:'great_herb',w:20});
   if(floor>=3)table.push({id:'antidote',w:5});
@@ -582,16 +584,9 @@ function dmRender(){
     const bright=Math.max(DM_LIGHT_MIN,1-dist*DM_LIGHT_FALLOFF).toFixed(2);
     cells.push({cls,icon:ico,bright});
   }
-  let actionBtn;
-  if(DM.pending==='event_choice'){
-    actionBtn={text:'❓ 調べる',bg:'linear-gradient(180deg,#b06aff,#8a6dfa)',color:'#fff'};
-  }else if(DM.pending==='chest'){
-    actionBtn={text:'🎁 開ける',bg:'linear-gradient(180deg,#e8c96a,#c8a84b)',color:'#04060c'};
-  }else if(DM.pending==='stairs_down'||DM.pending==='stairs_up'){
-    actionBtn={text:DM.pending==='stairs_down'?'↓ 進む':'↑ 戻る',bg:'linear-gradient(180deg,#7ad0ff,#4ea8d8)',color:'#04060c'};
-  }else{
-    actionBtn={text:'⚔',bg:'',color:''};
-  }
+  // Aボタンは常に"A"表示で固定する(宝箱・階段などpending状態でもラベル/色を変えない)。
+  // テキストが長いとボタンからはみ出し操作性を損なうため。pendingの内容はログ側で伝える。
+  const actionBtn={text:'A',bg:'',color:''};
   Renderer.renderGrid(cells,actionBtn);
   dmRenderMinimap();
   dmUpdateHud();
