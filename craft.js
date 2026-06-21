@@ -1,4 +1,6 @@
 /* ════ CRAFT ════ */
+// カテゴリ(archive)名 → 色。data.js の CCAT を参照。未知カテゴリは安全な既定色を返す。
+function cc(archive){return (typeof CCAT!=='undefined'&&CCAT[archive])||'#8090a0'}
 let CT='word',CS=['',''];
 function setCT(tab){CT=tab;CS=['',''];document.getElementById('t-wc').classList.toggle('on',tab==='word');document.getElementById('t-ic').classList.toggle('on',tab==='item');renderCft()}
 function renderCft(){

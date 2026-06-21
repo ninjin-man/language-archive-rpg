@@ -158,9 +158,7 @@ function updateHdr(){
   const pct=S.exp%100;
   document.getElementById('ef').style.width=pct+'%';
   document.getElementById('el').textContent=`${pct}/100 EXP`;
-  const rp=Math.round(n/WD.length*100);
-  document.getElementById('rpct').textContent=rp+'%';
-  document.getElementById('rfil').style.width=rp+'%';
+  // アーカイブ進捗(旧rpct/rfil)はスフィア盤(sphere-grid.js: sg-pct/sg-fill)へ移行済みのため更新不要
   const cs=document.getElementById('cs');
   if(cs)cs.innerHTML=`
     <div class="cr"><span>単語クラフト</span><b>${S.cwrd.length}/${WR.length}</b></div>
