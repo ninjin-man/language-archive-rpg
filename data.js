@@ -160,8 +160,50 @@ const ITEMS=[
   {id:'big_herb',  type:'consumable', name:'Big Herb',   jp:'大薬草', desc:'HPを100回復する',icon:'🪴', effect:{hp:100}},
   {id:'antidote',  type:'consumable', name:'Antidote',   jp:'毒消し草', desc:'状態異常を解除する(状態異常システムは未実装)',icon:'🧪', effect:{cure:true}},
   {id:'fire_stone',type:'consumable', name:'Fire Stone', jp:'火炎石', desc:'隣接する敵に固定ダメージを与える',icon:'🔥', effect:{fireDmg:15}},
+
+  /* ════ Phase26: 探索リワード刷新 ════
+     装備(weapon/shield/accessory)はmeta.rarityを持ち、EQUIP_RARITY_MULTで実効値が変動。
+     ore=クラフト素材, gold_pile=即Gold, archive_shard=解読で単語発見。 */
+  {id:'eq_sword',   type:'weapon',     slot:'weapon',    name:'Sword',     jp:'剣',     desc:'攻撃力を上げる武器。',icon:'🗡️', base:{atk:3}},
+  {id:'eq_axe',     type:'weapon',     slot:'weapon',    name:'Axe',       jp:'斧',     desc:'重く高い攻撃力を持つ武器。',icon:'🪓', base:{atk:4}},
+  {id:'eq_spear',   type:'weapon',     slot:'weapon',    name:'Spear',     jp:'槍',     desc:'間合いの広い攻撃力重視の武器。',icon:'🔱', base:{atk:3}},
+  {id:'eq_shield',  type:'shield',     slot:'shield',    name:'Shield',    jp:'盾',     desc:'防御力を上げる盾。',icon:'🛡️', base:{def:2}},
+  {id:'eq_armor',   type:'shield',     slot:'shield',    name:'Armor',     jp:'鎧',     desc:'高い防御力を得られる鎧。',icon:'🥋', base:{def:3}},
+  {id:'eq_ring',    type:'accessory',  slot:'accessory', name:'Ring',      jp:'指輪',   desc:'回復力を上げる装身具。',icon:'💍', base:{regen:1}},
+  {id:'eq_amulet',  type:'accessory',  slot:'accessory', name:'Amulet',    jp:'護符',   desc:'最大HPを上げる装身具。',icon:'📿', base:{hp:8}},
+  {id:'ore_iron',   type:'material',   name:'Iron Ore',  jp:'鉄鉱石', desc:'クラフト素材。鍛冶に使える鉄の鉱石。',icon:'⛏️'},
+  {id:'ore_crystal',type:'material',   name:'Crystal Ore',jp:'水晶鉱石',desc:'クラフト素材。魔力を帯びた美しい鉱石。',icon:'💎'},
+  {id:'ore_gold',   type:'material',   name:'Gold Ore',  jp:'金鉱石', desc:'クラフト素材。価値の高い金の鉱石。',icon:'🪙'},
+  {id:'gold_pile',  type:'gold',       name:'Gold',      jp:'お金',   desc:'拾うと即座にGoldになる。',icon:'💰'},
+  {id:'archive_shard',type:'shard',    name:'Archive Shard',jp:'アーカイブの欠片',desc:'失われた言葉の断片。解読すると、このダンジョンに眠る単語を1つ取り戻せる。',icon:'🔮'},
 ];
 function getItemDef(id){return ITEMS.find(i=>i.id===id)}
+
+/* ════ Phase26: 装備レアリティ係数とヘルパー ════ */
+const EQUIP_RARITY_MULT={common:1,uncommon:1.4,rare:1.8,epic:2.4,legendary:3};
+// 装備の実効ステータスを返す。eq = {id, rarity}
+function getEquipStats(eq){
+  if(!eq)return {};
+  const def=getItemDef(eq.id);
+  if(!def||!def.base)return {};
+  const mult=EQUIP_RARITY_MULT[eq.rarity]||1;
+  const out={};
+  for(const k in def.base)out[k]=Math.round(def.base[k]*mult);
+  return out;
+}
+// 装備の表示名(レアリティ接頭辞つき)
+function equipDisplayName(eq){
+  if(!eq)return '';
+  const def=getItemDef(eq.id);if(!def)return '';
+  const rl=(typeof RLBL!=='undefined'&&RLBL[eq.rarity])||eq.rarity||'';
+  return `${def.icon} ${def.jp}${rl?`(${rl})`:''}`;
+}
+// 装備ドロップ抽選用テーブル(スロット別)
+const EQUIP_BY_SLOT={
+  weapon:['eq_sword','eq_axe','eq_spear'],
+  shield:['eq_shield','eq_armor'],
+  accessory:['eq_ring','eq_amulet'],
+};
 
 /* ════ POS COMBO / 単語構文システム (Phase9) ════ */
 // スキル生成スロット定義 (Noun/Verb/Adjective/Adverb の4枠、空欄可)
