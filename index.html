@@ -211,6 +211,7 @@
     <div class="dmhdr">
       <span class="dmt" id="dm-title">ダンジョン</span>
       <span class="dmf-info" id="dm-floor">B1F</span>
+      <button class="dmc" id="dm-dpad-toggle" onclick="dmToggleDpad()" title="十字キー表示の切替(OFFでもマップタップで移動できます)">🎮</button>
       <button class="dmc" onclick="openCharMenu()">☰</button>
       <button class="dmc" onclick="closeDmap()">✕</button>
     </div>
@@ -259,7 +260,7 @@
               <button class="dmb-act dmb-m" onclick="openCharMenu()" title="メニュー(持ち物・装備)">☰</button>
             </div>
           </div>
-          <div class="dm-cdr-label">移動 ／ A=攻撃・決定 ／ B=待機 ／ ☰=メニュー</div>
+          <div class="dm-cdr-label">マップをタップで移動／中央タップで待機／A=決定／B=待機／☰=メニュー</div>
         </div>
         <div class="dm-console">
           <div class="dm-log" id="dm-log"></div>

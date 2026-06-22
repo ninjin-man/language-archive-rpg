@@ -7,7 +7,8 @@ let S={screen:'arc',job:'novice',unlockedJobs:['novice'],exp:0,ap:0,gold:0,relic
   dex:{items:{},monsters:{}},   // Phase20: 図鑑基盤(アイテム/モンスターの発見フラグ)
   gridPos:null,                 // PhaseA: スフィア盤のカーソル位置(単語名)
   worldPos:null,fromWorld:false,// PhaseW1: オーバーワールド上のプレイヤー座標 / ダンジョン帰還先フラグ
-  ws:{},cwrd:[],citem:[],clog:[],filt:'all',off:{x:0,y:0}};
+  ws:{},cwrd:[],citem:[],clog:[],filt:'all',off:{x:0,y:0},
+  settings:{dpadVisible:true}}; // 操作設定: ダンジョンの十字キー(Dpad)表示ON/OFF。OFFでもタップ移動は常時有効
 
 // Word level helpers (単語進化システム)
 function getWLv(word){return (S.wlv[word]||{lv:1,exp:0})}
@@ -39,6 +40,9 @@ function load(){
   if(!S.dex)S.dex={items:{},monsters:{}};
   if(!S.dex.items)S.dex.items={};
   if(!S.dex.monsters)S.dex.monsters={};
+  // 操作設定の補完(旧セーブにsettingsが無い場合)
+  if(!S.settings)S.settings={};
+  if(S.settings.dpadVisible===undefined)S.settings.dpadVisible=true;
   // Phase9: backfill Grammar Archive fields + pad words[] to 4 slots (noun,verb,adjective,adverb)
   (S.skills||[]).forEach(sk=>{
     if(sk.uses===undefined)sk.uses=1;

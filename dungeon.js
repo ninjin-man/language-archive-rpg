@@ -142,6 +142,8 @@ function openDmap(id){
   generateFloor(1);
   loadFloor(1);
   dmRender();
+  dmBindGridTap();          // タップ移動ハンドラを保証(初回開始時)
+  dmApplyDpadVisibility();  // 保存済みのDpad表示設定を反映
 }
 function closeDmap(reason){
   reason=reason||'manual'; // 'manual'(✕ボタン撤退) | 'death'(HP0帰還) | 'clear'(最深部到達)
@@ -1189,6 +1191,57 @@ function dmBindDirButtons(){
   });
 }
 document.addEventListener('DOMContentLoaded',dmBindDirButtons);
+
+/* ════ タップ移動(常時有効) ════
+   方針: ダンジョングリッドのセルをタップしたら、プレイヤー(中心セル)からの相対方向を
+   求めて dmQueueMove(dir) に流す。これにより移動・接触攻撃・敵ターンの既存処理を
+   そのまま再利用できる(Albion/OSRS式のタップ移動)。
+   - 隣接セル: その方向へ1マス移動/攻撃
+   - 離れたセル: その方向へ1歩だけ寄せる(8方向のいずれか)
+   - 自マス(中心)タップ: 待機(dmWait)
+   Dpad表示ON/OFFに関わらず常に有効。Dpadは「押しっぱなしで連続移動」用の補助として残す。 */
+const DM_STEP_TO_DIR={
+  '0,-1':'up','0,1':'down','-1,0':'left','1,0':'right',
+  '-1,-1':'upleft','1,-1':'upright','-1,1':'downleft','1,1':'downright',
+};
+function dmBindGridTap(){
+  const gc=document.getElementById('dm-grid');
+  if(!gc||gc._tapBound)return;
+  gc._tapBound=true;
+  gc.addEventListener('click',e=>{
+    if(!dmIsOverlayOpen())return;
+    if(DM.pending)return; // イベント選択待ち等の間は無視
+    const cell=e.target.closest('.dc');
+    if(!cell||cell.parentElement!==gc)return;
+    const idx=Array.prototype.indexOf.call(gc.children,cell);
+    if(idx<0)return;
+    const vx=idx%VW, vy=Math.floor(idx/VW);
+    const cx=Math.floor(VW/2), cy=Math.floor(VH/2); // 中心=プレイヤー
+    const sx=Math.sign(vx-cx), sy=Math.sign(vy-cy);
+    if(sx===0&&sy===0){dmWait();return} // 自マスタップ=待機
+    const dir=DM_STEP_TO_DIR[`${sx},${sy}`];
+    if(dir)dmQueueMove(dir);
+  });
+}
+document.addEventListener('DOMContentLoaded',dmBindGridTap);
+
+/* ════ Dpad(十字キー)表示のON/OFF切替 ════
+   表示制御のみ。タップ移動は常時有効なので、OFFにしてもプレイ可能で、
+   その分マップ表示領域が広がる。設定はセーブに永続化される。 */
+function dmApplyDpadVisibility(){
+  const on=!!(S.settings&&S.settings.dpadVisible);
+  const controls=document.querySelector('.dm-controls');
+  if(controls)controls.style.display=on?'':'none';
+  const tgl=document.getElementById('dm-dpad-toggle');
+  if(tgl){tgl.style.opacity=on?'1':'0.45';}
+}
+function dmToggleDpad(){
+  if(!S.settings)S.settings={};
+  S.settings.dpadVisible=!S.settings.dpadVisible;
+  save();
+  dmApplyDpadVisibility();
+  dmLog(S.settings.dpadVisible?'🎮 十字キーを表示しました。':'🎮 十字キーを隠しました(マップタップで移動)。');
+}
 
 // オーバーレイを閉じた際は入力状態をリセット
 const _origCloseDmap=closeDmap;
