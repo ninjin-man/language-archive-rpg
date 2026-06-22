@@ -766,18 +766,42 @@ function dmKillEnemy(enemy){
   DM.battleDiscoverBonus=(DM.battleDiscoverBonus||0)+0.05;
   // Phase12: 敵撃破でレベルアップ用経験値を取得(Archive EXPと同額を流用、固定成長)
   gainLevelExp(aexpGain);
-  // Phase19: ドロップは即時フィールド(プレイヤーの足元)に生成し、その場で自動取得を試みる
-  // (ドロップ取得自体はターンを消費しない。所持上限ならPhase16の「置く」プロンプトに繋がる)
+  // ドロップは敵がいた床マスに生成する(占有マスなら隣接へずらす)。自動取得はせず床に残す(シレン式)。
   let dropMsg='';
   const drops=fl?rollEnemyDrops(enemy):[];
   drops.forEach(id=>{
-    if(fl)dmPlaceItemsOnFloor(id,1,fl.playerPos);
+    if(fl)dmDropOnFloor(fl,id,enemy.x,enemy.y);
     const def=getItemDef(id);
     if(def)dropMsg+=` ${def.icon}${def.jp}がドロップした！`;
   });
   save();updateHdr();
   dmLog(`🎉 ${enemy.name}を倒した！ 💰+${goldGain} Gold / 📈+${aexpGain} Archive EXP${dropMsg}`);
-  if(drops.length&&fl)dmTryPickupItems(fl.playerPos.x,fl.playerPos.y);
+  // 自動取得は廃止(風来のシレン式)。ドロップは床に残り、プレイヤーが踏むと取得される。
+}
+
+// ドロップ配置の可否判定: 壁/階段/イベント/既存アイテムがあるマスは「占有」とみなす
+function dmCellOccupiedForDrop(fl,x,y){
+  if(x<0||x>=GW||y<0||y>=GH)return true;
+  const t=fl.grid[y][x];
+  if(t===CELL.WALL)return true;
+  if(t===CELL.STAIRS_DOWN||t===CELL.STAIRS_UP||t===CELL.EVENT)return true;
+  if((fl.items||[]).some(it=>it.x===x&&it.y===y))return true; // 既存アイテムに重ねない
+  return false;
+}
+// モンスターのドロップを床に配置する。指定マスが占有(アイテム/階段/イベント/壁)されていれば
+// 隣接する空き床マスへずらして配置する(見つからなければ指定マスにそのまま置く)。
+function dmDropOnFloor(fl,id,x,y,meta){
+  if(!fl)return;
+  if(!fl.items)fl.items=[];
+  let tx=x,ty=y;
+  if(dmCellOccupiedForDrop(fl,x,y)){
+    const around=[[0,-1],[0,1],[-1,0],[1,0],[-1,-1],[1,-1],[-1,1],[1,1]];
+    for(const [dx,dy] of around){
+      const nx=x+dx,ny=y+dy;
+      if(!dmCellOccupiedForDrop(fl,nx,ny)){tx=nx;ty=ny;break}
+    }
+  }
+  fl.items.push({x:tx,y:ty,id,meta});
 }
 
 // ── Phase16/18/19: 床アイテムの取得・設置 ──
@@ -811,10 +835,10 @@ function dmTryPickupItems(x,y){
         if(it.id==='great_herb')showRareFind(); // Phase22: レアアイテム演出
       }
     }else{
-      DM.pending='inv_full';
-      DM.pendingPickup={x,y};
-      openInvFullPrompt();
-      return;
+      // 持ち物がいっぱい(風来のシレン式): 一覧画面は出さず、アイテムは床に残してメッセージのみ表示する。
+      // pendingを設定しないため移動は通常通り完了し(キャラ消失バグの回避)、ターンも進む。
+      dmLog('🎒 持ち物がいっぱいだ！(足元にアイテムが残っている)');
+      return; // 残りのアイテムも床に残す
     }
   }
 }
@@ -1146,17 +1170,27 @@ const DM_STEP_TO_DIR={
   '-1,-1':'upleft','1,-1':'upright','-1,1':'downleft','1,1':'downright',
 };
 function dmBindGridTap(){
-  const gc=document.getElementById('dm-grid');
-  if(!gc||gc._tapBound)return;
-  gc._tapBound=true;
-  gc.addEventListener('click',e=>{
+  const frame=document.getElementById('dm-grid-frame');
+  if(!frame||frame._tapBound)return;
+  frame._tapBound=true;
+  frame.addEventListener('click',e=>{
     if(!dmIsOverlayOpen())return;
     if(DM.pending)return; // イベント選択待ち等の間は無視
-    const cell=e.target.closest('.dc');
-    if(!cell||cell.parentElement!==gc)return;
-    const idx=Array.prototype.indexOf.call(gc.children,cell);
-    if(idx<0)return;
-    const vx=idx%VW, vy=Math.floor(idx/VW);
+    if(e.target.closest('.dm-minimap-frame'))return; // ミニマップ部分のタップは除外
+    // 実際に表示されている描画要素(Canvas版が正式採用。DOM版はdisplay:noneのフォールバック)の
+    // 矩形からタップ位置→ビューポートセル(vx,vy)を求める。CSSピクセルで計算するのでdpr非依存。
+    const canvas=document.getElementById('dm-canvas');
+    const grid=document.getElementById('dm-grid');
+    let el=(canvas&&canvas.offsetParent!==null)?canvas
+          :(grid&&grid.offsetParent!==null)?grid
+          :(canvas||grid);
+    if(!el)return;
+    const rect=el.getBoundingClientRect();
+    if(rect.width<2||rect.height<2)return;
+    const relX=e.clientX-rect.left, relY=e.clientY-rect.top;
+    if(relX<0||relY<0||relX>rect.width||relY>rect.height)return;
+    const vx=Math.floor(relX/(rect.width/VW));
+    const vy=Math.floor(relY/(rect.height/VH));
     const cx=Math.floor(VW/2), cy=Math.floor(VH/2); // 中心=プレイヤー
     const sx=Math.sign(vx-cx), sy=Math.sign(vy-cy);
     if(sx===0&&sy===0){dmWait();return} // 自マスタップ=待機

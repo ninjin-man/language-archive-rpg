@@ -224,7 +224,18 @@ function crDraw(){
     const stack=itemsAt[key], enemy=enemyAt[key];
     ctx.font = Math.round(cell*0.55)+'px sans-serif';
 
-    if (stack && stack.length){
+    if (enemy){
+      crFillRadial(ctx,px,py,cell,CR_COL.rose);
+      ctx.fillStyle=CR_COL.text;
+      ctx.fillText(enemy.icon||'👾', px+cell/2, py+cell/2+1);
+      if (enemy.hp){
+        const hpPct=Math.max(0,enemy.curHp/enemy.hp);
+        ctx.fillStyle='rgba(0,0,0,.55)';
+        ctx.fillRect(px+cell*0.1, py+1, cell*0.8, Math.max(2,cell*0.06));
+        ctx.fillStyle='#ff8a5a';
+        ctx.fillRect(px+cell*0.1, py+1, cell*0.8*hpPct, Math.max(2,cell*0.06));
+      }
+    } else if (stack && stack.length){
       crFillRadial(ctx,px,py,cell,CR_COL.green);
       const def=getItemDef(stack[0].id);
       ctx.fillStyle=CR_COL.text;
@@ -235,17 +246,6 @@ function crDraw(){
         ctx.fillStyle='#04060c';
         ctx.font=Math.round(cell*0.32)+'px sans-serif';
         ctx.fillText(String(stack.length), px+cell-cell*0.16, py+cell-cell*0.16);
-      }
-    } else if (enemy){
-      crFillRadial(ctx,px,py,cell,CR_COL.rose);
-      ctx.fillStyle=CR_COL.text;
-      ctx.fillText(enemy.icon||'👾', px+cell/2, py+cell/2+1);
-      if (enemy.hp){
-        const hpPct=Math.max(0,enemy.curHp/enemy.hp);
-        ctx.fillStyle='rgba(0,0,0,.55)';
-        ctx.fillRect(px+cell*0.1, py+1, cell*0.8, Math.max(2,cell*0.06));
-        ctx.fillStyle='#ff8a5a';
-        ctx.fillRect(px+cell*0.1, py+1, cell*0.8*hpPct, Math.max(2,cell*0.06));
       }
     } else if (t===CELL.PLAYER){
       crFillRadial(ctx,px,py,cell,CR_COL.cyan);

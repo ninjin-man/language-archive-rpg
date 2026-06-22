@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no,viewport-fit=cover">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover">
 <title>Language Archive RPG</title>
 <link rel="stylesheet" href="style.css">
 <link rel="stylesheet" href="worldmap.css">
@@ -334,15 +334,11 @@
 <script src="world-data.js"></script>
 <script src="world.js"></script>
 
-<!-- ダブルタップ/ピンチによるSafariのページズームを無効化。
-     固定レイアウト(overflow:hidden)のため一度ズームすると戻せなくなる問題への対処。
-     ・touch-action:manipulation … ダブルタップズームを抑止(タップ自体は通すので連続タップ移動は維持)
-     ・gesture系のpreventDefault … ページ全体のピンチズームを抑止
-     スフィアグリッド/ワールドマップは touchmove ベースの自前ズームなので影響を受けない。 -->
+<!-- ダブルタップによるSafariのページズームを無効化(touch-action:manipulation)。
+     ピンチズームは意図的に許可する: 万一ズームされても指2本で元(等倍)に戻せるようにし、
+     「ズームしたまま戻れない」状態を防ぐ。タップ/クリックは通すのでタップ移動には影響しない。 -->
 <script>
 (function(){
-  // ダブルタップズーム抑止: 主要コンテナに touch-action:manipulation を付与
-  // (CSSで touch-action:none を持つ要素=スフィアSVG/Canvas はそちらが優先され自前ピンチを維持)
   const apply=()=>{
     document.documentElement.style.touchAction='manipulation';
     if(document.body)document.body.style.touchAction='manipulation';
@@ -351,11 +347,6 @@
   };
   apply();
   document.addEventListener('DOMContentLoaded',apply);
-  // ページのピンチズーム抑止(iOS Safariのgestureイベント)。
-  // 自前ズームはtouchイベントで処理しているためここで止めても支障しない。
-  ['gesturestart','gesturechange','gestureend'].forEach(ev=>{
-    document.addEventListener(ev,e=>e.preventDefault(),{passive:false});
-  });
 })();
 </script>
 </body>
