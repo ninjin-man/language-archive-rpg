@@ -38,6 +38,7 @@ var WORLD = {
   moving:false, mfx:0, mfy:0, mtx:0, mty:0, mstart:0, mdur:130,
   dir:'down',
   VIS:11,
+  held:null, repTimer:null,
   inited:false,
   t0:Date.now(),
 };
@@ -192,18 +193,25 @@ function wldMove(dir){
 function wldEase(t){return 1-Math.pow(1-t,2)}
 function wldArrive(){
   var G=WORLD;
+  var fromX=G.mfx, fromY=G.mfy;   // 進入元(手前マス)
   G.px=G.mtx;G.py=G.mty;G.ppx=G.px;G.ppy=G.py;G.moving=false;
-  if(typeof S!=='undefined'){S.worldPos={x:G.px,y:G.py};if(typeof save==='function')save();}
   var hit=G.spots.find(function(s){return s.gx===G.px&&s.gy===G.py;});
-  if(hit)wldEnterSpot(hit);
+  if(hit){ wldEnterSpot(hit,fromX,fromY); }
+  else if(typeof S!=='undefined'){ S.worldPos={x:G.px,y:G.py}; if(typeof save==='function')save(); }
 }
-function wldEnterSpot(spot){
+function wldEnterSpot(spot,fromX,fromY){
   if(spot.type==='dungeon'){
-    if(typeof S!=='undefined'){S.fromWorld=true;if(typeof save==='function')save();}
+    // 復帰時に入口上で再侵入しないよう、手前マスを保存位置にする(DQ/FF標準)。
+    if(typeof S!=='undefined'){
+      var back=(fromX!==undefined&&wldWalkable(fromX,fromY))?{x:fromX,y:fromY}:{x:spot.gx,y:spot.gy};
+      S.worldPos=back; S.fromWorld=true;
+      if(typeof save==='function')save();
+    }
     WORLD_hide();
     if(typeof openDmap==='function')openDmap(spot.id);
     else if(typeof toast==='function')toast('入口: '+spot.name,'g');
   }else if(spot.type==='town'){
+    if(typeof S!=='undefined'){ S.worldPos={x:spot.gx,y:spot.gy}; if(typeof save==='function')save(); }
     if(typeof toast==='function')toast('🏠 '+(spot.name||'町')+'（準備中）','gr');
   }
 }
@@ -223,18 +231,22 @@ function wldLoop(){
 }
 
 /* ════════ 入力結線 ════════ */
+function wldStopHold(){
+  WORLD.held=null;
+  if(WORLD.repTimer){clearInterval(WORLD.repTimer);WORLD.repTimer=null;}
+}
 function wldBindControls(){
-  var held=null, repTimer=null;
   function startHold(dir){
-    held=dir; wldMove(dir);
-    if(repTimer)clearInterval(repTimer);
-    repTimer=setInterval(function(){ if(held)wldMove(held); },140);
+    WORLD.held=dir; wldMove(dir);
+    if(WORLD.repTimer)clearInterval(WORLD.repTimer);
+    WORLD.repTimer=setInterval(function(){ if(WORLD.held&&WORLD.running)wldMove(WORLD.held); },140);
   }
-  function endHold(){ held=null; if(repTimer){clearInterval(repTimer);repTimer=null;} }
+  function endHold(){ wldStopHold(); }
   document.querySelectorAll('#world-dpad [data-wdir]').forEach(function(b){
     var dir=b.getAttribute('data-wdir');
     b.addEventListener('touchstart',function(e){e.preventDefault();startHold(dir);},{passive:false});
     b.addEventListener('touchend',function(e){e.preventDefault();endHold();},{passive:false});
+    b.addEventListener('touchcancel',function(e){endHold();},{passive:false});
     b.addEventListener('mousedown',function(e){e.preventDefault();startHold(dir);});
     b.addEventListener('mouseup',endHold);
     b.addEventListener('mouseleave',endHold);
@@ -271,6 +283,13 @@ function enterWorld(){
 /* ════════ ループ制御 ════════ */
 function WORLD_show(){
   if(!WORLD.grid)wldBuildMap();
+  // 直前の移動アニメ・長押しが残っていてもクリーンに開始する(ダンジョン帰還時の固まり防止)
+  WORLD.moving=false;
+  if(typeof wldStopHold==='function')wldStopHold();
+  // セーブ位置を現在地として反映(手前マスに戻す処理が効くように)
+  if(typeof S!=='undefined'&&S.worldPos&&wldInBounds(S.worldPos.x,S.worldPos.y)&&wldWalkable(S.worldPos.x,S.worldPos.y)){
+    WORLD.px=S.worldPos.x; WORLD.py=S.worldPos.y; WORLD.ppx=WORLD.px; WORLD.ppy=WORLD.py;
+  }
   WORLD.running=true; WORLD.t0=Date.now();
   var tries=0;
   (function ready(){
@@ -281,7 +300,12 @@ function WORLD_show(){
     else if(!WORLD.raf){ wldLoop(); }
   })();
 }
-function WORLD_hide(){ WORLD.running=false; if(WORLD.raf){cancelAnimationFrame(WORLD.raf);WORLD.raf=null;} }
+function WORLD_hide(){
+  WORLD.running=false;
+  WORLD.moving=false;           // 移動アニメ中断(入口侵入時の途中状態を残さない)
+  if(typeof wldStopHold==='function')wldStopHold(); // 長押し連続移動を停止
+  if(WORLD.raf){cancelAnimationFrame(WORLD.raf);WORLD.raf=null;}
+}
 
 /* ════════ 初期化 ════════ */
 function wldInit(){
