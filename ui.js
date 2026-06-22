@@ -402,8 +402,11 @@ function init(){
   load();
   if(!S.unlockedJobs.includes('novice'))S.unlockedJobs.push('novice');
   ['Fire','Slime','Buy'].forEach(w=>{if(gst(w)==='unknown')sst(w,'discovered')});
-  save();updateHdr();initPan();checkJobs();renderArc();
-  window.addEventListener('resize',()=>{if(S.screen==='arc')renderArc()});
-  document.querySelectorAll('.nb').forEach(b=>{if(b.getAttribute('onclick')?.includes("'arc'"))b.classList.add('on')});
+  save();checkJobs();
+  // 起動時はオーバーワールド(フィールド)をトップに表示。
+  // タブUI(アーカイブ盤等の重い描画)は☰メニューを開いた時に初めて行う(軽量起動)。
+  if(typeof enterWorld==='function')enterWorld();
+  else { updateHdr();initPan();renderArc();document.body.classList.remove('world-active'); }
+  window.addEventListener('resize',()=>{if(document.body.classList.contains('menu-open')&&S.screen==='arc')renderArc()});
 }
-init();
+// init()の実行は最後に読み込まれる world.js 末尾で行う(enterWorld等の定義を待つため)。

@@ -164,7 +164,12 @@ function closeDmap(reason){
     save();
   }
   renderExp();
-  if(typeof WM_show==='function')WM_show(); // The Archive Atlas: ダンジョンから帰還したら世界地図の描画ループを再開
+  // ワールドマップ経由で入った場合はフィールドへ帰還。そうでなければ探索タブのAtlasを再開。
+  if(typeof S!=='undefined'&&S.fromWorld&&typeof enterWorld==='function'){
+    enterWorld();
+  } else if(typeof WM_show==='function'){
+    WM_show(); // The Archive Atlas: ダンジョンから帰還したら世界地図の描画ループを再開
+  }
 }
 
 /* BSP dungeon generation */

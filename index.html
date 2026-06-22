@@ -7,7 +7,24 @@
 <link rel="stylesheet" href="style.css">
 <link rel="stylesheet" href="worldmap.css">
 </head>
-<body>
+<body class="world-active">
+
+<!-- ════ OVERWORLD FIELD (Phase W1) ════ 起動時トップ画面。☰でメニュー(#root)を開く -->
+<div id="s-world">
+  <div id="world-stage"><canvas id="world-canvas"></canvas></div>
+  <button id="world-menu-btn" onclick="openMenuOverlay()" title="メニュー">☰</button>
+  <div id="world-dpad">
+    <button class="wdb wdb-upleft"    data-wdir="upleft">↖</button>
+    <button class="wdb wdb-up"        data-wdir="up">▲</button>
+    <button class="wdb wdb-upright"   data-wdir="upright">↗</button>
+    <button class="wdb wdb-left"      data-wdir="left">◀</button>
+    <button class="wdb wdb-right"     data-wdir="right">▶</button>
+    <button class="wdb wdb-downleft"  data-wdir="downleft">↙</button>
+    <button class="wdb wdb-down"      data-wdir="down">▼</button>
+    <button class="wdb wdb-downright" data-wdir="downright">↘</button>
+  </div>
+</div>
+
 <div id="root">
 <div id="hdr">
   <div class="logo">Archive<em>RPG</em></div>
@@ -26,6 +43,7 @@
   </div>
 </div>
 <div id="nav">
+  <button class="nb nb-back" onclick="closeMenuOverlay()"><span class="ni">🗺️</span>フィールド</button>
   <button class="nb on" onclick="go('arc')"><span class="ni">📚</span>アーカイブ</button>
   <button class="nb" onclick="go('exp')"><span class="ni">⚔️</span>探索</button>
   <button class="nb" onclick="go('cft')"><span class="ni">⚗️</span>クラフト</button>
@@ -312,5 +330,6 @@
 <script src="jobs.js"></script>
 <script src="ui.js"></script>
 <script src="worldmap.js"></script>
+<script src="world.js"></script>
 </body>
 </html>

@@ -6,6 +6,7 @@ let S={screen:'arc',job:'novice',unlockedJobs:['novice'],exp:0,ap:0,gold:0,relic
   level:1,lvExp:0,inventory:[], // Phase10-12: 持ち物・レベルアップ(ローグライクコアループ)
   dex:{items:{},monsters:{}},   // Phase20: 図鑑基盤(アイテム/モンスターの発見フラグ)
   gridPos:null,                 // PhaseA: スフィア盤のカーソル位置(単語名)
+  worldPos:null,fromWorld:false,// PhaseW1: オーバーワールド上のプレイヤー座標 / ダンジョン帰還先フラグ
   ws:{},cwrd:[],citem:[],clog:[],filt:'all',off:{x:0,y:0}};
 
 // Word level helpers (単語進化システム)
