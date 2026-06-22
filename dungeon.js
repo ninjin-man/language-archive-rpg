@@ -264,11 +264,7 @@ function generateFloor(f){
     }
     return false;
   };
-  // Chests
-  const nChests=f<5?2:3;
-  for(let i=0;i<nChests;i++)place(CELL.CHEST);
-  // Special chest (低確率: Gold or 単語の直接獲得) — 改修: 探索ループ改善
-  if(Math.random()<0.15)place(CELL.CHEST_GOLD);
+  // Chests: 廃止。Goldは床に直接落ちている(ドロップ)ため宝箱は不要。
   // Events
   // Events: 廃止(Phase26)。石碑イベント(❓)はテンポを損なうため生成しない。
   // 関連ハンドラ(showEventChoice/resolveEventChoice)はEVENTセルが存在しないため呼ばれない。
@@ -646,32 +642,6 @@ function dmLog(msg){
   Renderer.renderLog(DM.log);
 }
 
-// Special chest: instantly grants Gold or a word (no quiz) — 改修: 探索ループ改善
-// + Gold獲得量 +N% (Forge系スキル効果, Phase5) + 単語発見率 +N% (Magic系スキル/Scholar職業, Phase5/6)
-function openGoldChest(){
-  const d=DM.dungeon;
-  const goldMult=getGoldMultiplier();
-  // 単語発見率ボーナスにより「単語」結果の確率を上げる(基準50%)
-  const wordChance=Math.min(0.9,0.5+getDiscoverBonus());
-  if(Math.random()>=wordChance){
-    const amt=Math.round((10+Math.floor(Math.random()*DM.floor*5))*goldMult);
-    S.gold=(S.gold||0)+amt;save();updateHdr();
-    return `💰 宝箱からGold ${amt} を手に入れた！`;
-  } else {
-    const pool=d.words.map(w=>WM[w]).filter(Boolean).filter(w=>gst(w.word)==='unknown');
-    if(!pool.length){
-      const amt=Math.round((10+Math.floor(Math.random()*DM.floor*5))*goldMult);
-      S.gold=(S.gold||0)+amt;save();updateHdr();
-      return `💰 宝箱からGold ${amt} を手に入れた！`;
-    }
-    const w=pickBonusWord(pool);
-    if(w){discover(w.word);DM.wordsFound++}
-    // スキル素材判定: SKILL_EFFECT_TABLEのキーワードに一致する単語は「スキル素材」として強調
-    const isSkillMat=w&&SKILL_EFFECT_TABLE.some(e=>e.keywords.some(kw=>w.word.includes(kw)));
-    return w?`💰 宝箱から単語「${w.word}」を発見！${isSkillMat?' ✨スキル素材として活用できそう！':''}`:'💰 宝箱から単語「?」を発見！';
-  }
-}
-
 function dmv(dir){
   if(DM.pending)return;
   const fl=DM.floors[DM.floor];if(!fl)return;
@@ -712,13 +682,7 @@ function dmv(dir){
   }
   // Handle cell
   let msg='';
-  if(dest===CELL.CHEST){
-    msg='🎁 宝箱を発見！';DM.pending='chest';g[ny][nx]=CELL.PLAYER;
-    setTimeout(()=>{if(DM.pending==='chest')dmResolvePending()},500);
-  }else if(dest===CELL.CHEST_GOLD){
-    g[ny][nx]=CELL.PLAYER;
-    msg=openGoldChest();
-  }else if(dest===CELL.EVENT){
+  if(dest===CELL.EVENT){
     msg='❓ 古い石碑を見つけた…';DM.pending='event_choice';g[ny][nx]=CELL.PLAYER;
     setTimeout(()=>{if(DM.pending==='event_choice')dmResolvePending()},500);
   }else if(dest===CELL.STAIRS_DOWN){
@@ -971,31 +935,8 @@ function dmResolvePending(){
     openStairsConfirm(DM.pending==='stairs_down'?'down':'up');
     return;
   }
-  // 通常チェスト: アーカイブ(単語)を直接発見させる
-  // 改修(探索テンポ改善・強制クイズ廃止): 解答必須のクイズで進行を止めない。
-  // discover()は既存のDISCOVERY CARDで報酬を提示するだけの非ブロッキングUIなので、
-  // ダンジョン画面(dmov)はそのまま開いたままで良い。
-  const d=DM.dungeon;
-  const pool=d.words.map(w=>WM[w]).filter(Boolean);
-  // 深い階層ほど複数アーカイブをまとめて入手(従来のクイズ2問仕様を踏襲)
-  const n=DM.floor>=5?2:1;
+  // 宝箱は廃止したため、ここに来る pending は想定外。安全に解除して何もしない。
   DM.pending=null;
-  const found=[];
-  for(let i=0;i<n;i++){
-    const unknownPool=pool.filter(w=>gst(w.word)==='unknown'&&!found.includes(w.word));
-    const w=pickBonusWord(unknownPool.length?unknownPool:pool);
-    if(w&&gst(w.word)==='unknown'){discover(w.word);DM.wordsFound++;found.push(w.word)}
-  }
-  let msg;
-  if(found.length){
-    msg=`🎁 宝箱からアーカイブ「${found.join('」「')}」を発見！`;
-  }else{
-    const amt=Math.round((5+Math.floor(Math.random()*DM.floor*3))*getGoldMultiplier());
-    S.gold=(S.gold||0)+amt;save();updateHdr();
-    msg=`🎁 宝箱からGold ${amt} を見つけた。`;
-  }
-  dmLog(msg);
-  dmRender();
 }
 
 /* ════ 階段の確認選択肢: 次の階に行くかどうかをプレイヤーに選ばせる ════ */

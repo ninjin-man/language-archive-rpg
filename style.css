@@ -891,7 +891,10 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 
 
 /* メニュー(持ち物/能力)オーバーレイ — evov/evboxを再利用しテーマカラーのみ上書き */
-.cm-box{border-color:var(--gold-lo);min-width:260px}
+.cm-box{border-color:var(--gold-lo);min-width:260px;
+  max-height:calc(100dvh - 24px);display:flex;flex-direction:column;overflow:hidden}
+/* 図鑑など項目が多い画面で本文がはみ出しても画面内でスクロールできるようにする */
+#cm-body{overflow-y:auto;-webkit-overflow-scrolling:touch;flex:1 1 auto;min-height:0}
 .inv-cap{font-size:11px;color:var(--t2);margin-bottom:10px;text-align:center;font-weight:700}
 .inv-list{display:flex;flex-direction:column;gap:8px;margin-bottom:12px}
 .inv-empty{font-size:12px;color:var(--t2);text-align:center;padding:14px 0}
@@ -900,7 +903,9 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .inv-detail-actions{display:flex;flex-direction:column;gap:8px}
 .cact.secondary{background:var(--s4);color:var(--t0);border:1px solid var(--b1)}
 .cact.secondary:hover{background:var(--s5);border-color:var(--t2)}
-.cm-back{width:100%;margin-top:4px;opacity:.8}
+.cm-back{width:100%;margin-top:4px;opacity:.9;
+  position:sticky;bottom:0;z-index:1;
+  background:linear-gradient(180deg,var(--s4),var(--s3))}
 
 /* ── Phase26: 装備メニュー ── */
 .eq-list{display:flex;flex-direction:column;gap:12px;margin-bottom:12px}
