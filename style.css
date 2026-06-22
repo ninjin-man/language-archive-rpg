@@ -371,7 +371,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
    セルサイズ自体はJS側(canvas-renderer.js)がgetBoundingClientRectで実測するため、
    ここでは「箱の大きさ」だけ.dm-gridと完全に揃えればよい。 */
 #dm-canvas{display:block;width:calc(9*24px + 8*2px);height:calc(9*24px + 8*2px);
-  border-radius:4px;image-rendering:pixelated}
+  border-radius:4px;image-rendering:pixelated;touch-action:manipulation}
 .dc{width:24px;height:24px;border-radius:4px;display:flex;align-items:center;justify-content:center;
   font-size:10px;transition:all .25s ease;position:relative;overflow:hidden}
 /* Phase24: スプライトシート(assets/sprites/player_sheet.png, 6列×4行)から該当フレームを
@@ -920,6 +920,52 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
   padding:8px 4px;border-bottom:1px solid var(--b0)}
 .stat-row:last-of-type{border-bottom:none}
 
+/* ════ メニューUIの明色テーマ(添付のSF風ブルーUI参考) ════
+   従来は暗色(--s3/--s4 + 暗いテキスト--t2)で読みづらかったため、
+   .cm-box スコープ内だけ明るい青グラデ + 高コントラストなテキストに上書きする。
+   他の演出オーバーレイ(.evbox等)には影響させない。 */
+.cm-box{
+  background:linear-gradient(165deg,#1c3a5e,#102742) !important;
+  border:1px solid #3f7fb5 !important;
+  box-shadow:0 0 40px rgba(77,160,224,.25),0 20px 50px rgba(0,0,0,.7) !important;
+}
+.cm-box #cm-title,.cm-box .evtitle{color:#bfe3ff !important;
+  text-shadow:0 0 14px rgba(77,160,224,.5) !important}
+/* 説明・ラベル類を明るく */
+.cm-box .inv-cap,
+.cm-box .inv-detail-count,
+.cm-box .eq-cur{color:#a9c8e6 !important}
+.cm-box .inv-detail-desc,
+.cm-box .inv-empty,
+.cm-box .stat-row,
+.cm-box .inv-full-name{color:#e8f1fb !important}
+.cm-box .eq-cur.on{color:#ffffff !important}
+.cm-box .eq-slot-label{color:#ffd98a !important}
+.cm-box .eq-stat{color:#7fe0ff !important}
+/* ボタン(evbtn)を明色パネルに */
+.cm-box .evbtn{
+  background:linear-gradient(180deg,#264a72,#1a355a) !important;
+  border:1px solid #3f7fb5 !important;color:#eaf3fc !important}
+.cm-box .evbtn:hover{
+  background:linear-gradient(180deg,#2f5a88,#224066) !important;
+  border-color:#7fc4ff !important;color:#ffffff !important}
+/* 各種行・カードの背景も少し明るく */
+.cm-box .eq-row{background:rgba(20,48,80,.6) !important;border-color:#2f5f8c !important}
+.cm-box .inv-full-row{background:rgba(20,48,80,.5) !important;border-color:#2f5f8c !important}
+.cm-box .stat-row{border-bottom-color:rgba(120,170,210,.25) !important}
+.cm-box .cm-back{background:linear-gradient(180deg,#22426a,#16314f) !important}
+
+/* フィールド/ダンジョン共通: 十字キー表示切替ボタン(オーバーレイ) */
+.dpad-toggle-fab{position:absolute;z-index:9;width:44px;height:44px;border-radius:50%;
+  border:1px solid var(--b1,#283260);background:rgba(16,24,44,.82);color:#cfe6ff;
+  font-size:20px;line-height:1;display:flex;align-items:center;justify-content:center;
+  box-shadow:0 3px 10px rgba(0,0,0,.45);cursor:pointer;
+  top:calc(10px + env(safe-area-inset-top));right:calc(12px + env(safe-area-inset-right))}
+.dpad-toggle-fab.off{opacity:.5}
+/* フィールドのトグルはメニューボタン(右上)の左隣に置く */
+#world-dpad-toggle{right:calc(66px + env(safe-area-inset-right))}
+
+
 /* フローティング表示: 回復(heal)カラー */
 .dmg-float.heal{color:var(--green)}
 
@@ -977,7 +1023,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
   padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)}
 body.world-active #s-world{display:flex}
 #world-stage{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
-#world-canvas{width:100%;height:100%;display:block;touch-action:none}
+#world-canvas{width:100%;height:100%;display:block;touch-action:manipulation}
 
 /* ☰ メニューボタン(右上常設) */
 #world-menu-btn{position:absolute;top:calc(10px + env(safe-area-inset-top));right:12px;z-index:7;

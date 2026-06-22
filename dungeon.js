@@ -1173,30 +1173,50 @@ function dmBindGridTap(){
   const frame=document.getElementById('dm-grid-frame');
   if(!frame||frame._tapBound)return;
   frame._tapBound=true;
-  frame.addEventListener('click',e=>{
-    if(!dmIsOverlayOpen())return;
-    if(DM.pending)return; // イベント選択待ち等の間は無視
-    if(e.target.closest('.dm-minimap-frame'))return; // ミニマップ部分のタップは除外
-    // 実際に表示されている描画要素(Canvas版が正式採用。DOM版はdisplay:noneのフォールバック)の
-    // 矩形からタップ位置→ビューポートセル(vx,vy)を求める。CSSピクセルで計算するのでdpr非依存。
+  // タップ位置→方向を求める(表示中の描画要素の矩形から算出。CSSピクセルでdpr非依存)
+  function dirFromEvent(e){
+    if(e.target.closest('.dm-minimap-frame'))return undefined; // ミニマップは除外
     const canvas=document.getElementById('dm-canvas');
     const grid=document.getElementById('dm-grid');
     let el=(canvas&&canvas.offsetParent!==null)?canvas
-          :(grid&&grid.offsetParent!==null)?grid
-          :(canvas||grid);
-    if(!el)return;
+          :(grid&&grid.offsetParent!==null)?grid:(canvas||grid);
+    if(!el)return undefined;
     const rect=el.getBoundingClientRect();
-    if(rect.width<2||rect.height<2)return;
+    if(rect.width<2||rect.height<2)return undefined;
     const relX=e.clientX-rect.left, relY=e.clientY-rect.top;
-    if(relX<0||relY<0||relX>rect.width||relY>rect.height)return;
-    const vx=Math.floor(relX/(rect.width/VW));
-    const vy=Math.floor(relY/(rect.height/VH));
-    const cx=Math.floor(VW/2), cy=Math.floor(VH/2); // 中心=プレイヤー
+    if(relX<0||relY<0||relX>rect.width||relY>rect.height)return undefined;
+    const vx=Math.floor(relX/(rect.width/VW)), vy=Math.floor(relY/(rect.height/VH));
+    const cx=Math.floor(VW/2), cy=Math.floor(VH/2);
     const sx=Math.sign(vx-cx), sy=Math.sign(vy-cy);
-    if(sx===0&&sy===0){dmWait();return} // 自マスタップ=待機
-    const dir=DM_STEP_TO_DIR[`${sx},${sy}`];
-    if(dir)dmQueueMove(dir);
-  });
+    if(sx===0&&sy===0)return 'wait';
+    return DM_STEP_TO_DIR[`${sx},${sy}`]||undefined;
+  }
+  let tapDir=null;
+  const begin=e=>{
+    if(!dmIsOverlayOpen()||DM.pending)return;
+    const dir=dirFromEvent(e);
+    if(!dir)return;
+    e.preventDefault();
+    if(dir==='wait'){dmWait();return} // 自マスタップ=待機(連続はしない)
+    tapDir=dir;
+    dmQueueMove(dir);     // 即時1歩
+    dmStartRepeat(dir);   // 押し続けで連続移動
+  };
+  const steer=e=>{       // ドラッグで進行方向を変える
+    if(tapDir===null)return;
+    const dir=dirFromEvent(e);
+    if(!dir||dir==='wait'||dir===tapDir)return;
+    tapDir=dir;
+    dmStopRepeat();
+    dmQueueMove(dir);
+    dmStartRepeat(dir);
+  };
+  const end=()=>{ if(tapDir!==null){tapDir=null;dmStopRepeat();} };
+  frame.addEventListener('pointerdown',begin);
+  frame.addEventListener('pointermove',steer);
+  frame.addEventListener('pointerup',end);
+  frame.addEventListener('pointercancel',end);
+  frame.addEventListener('pointerleave',end);
 }
 document.addEventListener('DOMContentLoaded',dmBindGridTap);
 

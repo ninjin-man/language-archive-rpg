@@ -309,16 +309,17 @@ function renderItemDetail(idx){
 const EQ_STAT_JP={atk:'攻撃力',def:'防御力',regen:'回復力',hp:'最大HP'};
 
 /* ════ Phase26: 装備システム ════
-   S.equipment = {weapon, shield, accessory}。各スロットは {id,rarity} または null。
+   S.equipment = {weapon, shield, armor, accessory}。各スロットは {id,rarity} または null。
    装備すると getEquipBonus(battle.js)経由でステータスへ加算される。 */
 const EQ_SLOTS=[
   {slot:'weapon',   label:'武器',       icon:'🗡️'},
   {slot:'shield',   label:'盾',         icon:'🛡️'},
+  {slot:'armor',    label:'鎧',         icon:'🥋'},
   {slot:'accessory',label:'アクセサリー',icon:'💍'},
 ];
 function renderEquip(){
   document.getElementById('cm-title').textContent='装備';
-  const eq=S.equipment||{weapon:null,shield:null,accessory:null};
+  const eq=S.equipment||{weapon:null,shield:null,armor:null,accessory:null};
   const rows=EQ_SLOTS.map(s=>{
     const cur=eq[s.slot];
     const name=cur?equipDisplayName(cur):'なし';
@@ -359,7 +360,7 @@ function equipFromSlot(idx){
   const slot=S.inventory[idx];
   const def=slot&&getItemDef(slot.id);
   if(!slot||!def||!def.slot)return;
-  if(!S.equipment)S.equipment={weapon:null,shield:null,accessory:null};
+  if(!S.equipment)S.equipment={weapon:null,shield:null,armor:null,accessory:null};
   const slotName=def.slot;
   const prev=S.equipment[slotName];
   // 入れ替えで旧装備を持ち物に戻せるか事前確認(枠不足で旧装備を失わないようにする)。

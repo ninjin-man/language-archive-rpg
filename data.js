@@ -168,7 +168,7 @@ const ITEMS=[
   {id:'eq_axe',     type:'weapon',     slot:'weapon',    name:'Axe',       jp:'斧',     desc:'重く高い攻撃力を持つ武器。',icon:'🪓', base:{atk:4}},
   {id:'eq_spear',   type:'weapon',     slot:'weapon',    name:'Spear',     jp:'槍',     desc:'間合いの広い攻撃力重視の武器。',icon:'🔱', base:{atk:3}},
   {id:'eq_shield',  type:'shield',     slot:'shield',    name:'Shield',    jp:'盾',     desc:'防御力を上げる盾。',icon:'🛡️', base:{def:2}},
-  {id:'eq_armor',   type:'shield',     slot:'shield',    name:'Armor',     jp:'鎧',     desc:'高い防御力を得られる鎧。',icon:'🥋', base:{def:3}},
+  {id:'eq_armor',   type:'armor',      slot:'armor',     name:'Armor',     jp:'鎧',     desc:'高い防御力を得られる鎧。',icon:'🥋', base:{def:3}},
   {id:'eq_ring',    type:'accessory',  slot:'accessory', name:'Ring',      jp:'指輪',   desc:'回復力を上げる装身具。',icon:'💍', base:{regen:1}},
   {id:'eq_amulet',  type:'accessory',  slot:'accessory', name:'Amulet',    jp:'護符',   desc:'最大HPを上げる装身具。',icon:'📿', base:{hp:8}},
   {id:'ore_iron',   type:'material',   name:'Iron Ore',  jp:'鉄鉱石', desc:'クラフト素材。鍛冶に使える鉄の鉱石。',icon:'⛏️'},

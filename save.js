@@ -43,6 +43,9 @@ function load(){
   // 操作設定の補完(旧セーブにsettingsが無い場合)
   if(!S.settings)S.settings={};
   if(S.settings.dpadVisible===undefined)S.settings.dpadVisible=true;
+  // 装備スロットの補完(旧セーブに鎧スロットが無い場合)
+  if(!S.equipment)S.equipment={weapon:null,shield:null,armor:null,accessory:null};
+  if(S.equipment.armor===undefined)S.equipment.armor=null;
   // Phase9: backfill Grammar Archive fields + pad words[] to 4 slots (noun,verb,adjective,adverb)
   (S.skills||[]).forEach(sk=>{
     if(sk.uses===undefined)sk.uses=1;
