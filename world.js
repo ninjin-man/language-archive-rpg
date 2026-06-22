@@ -219,14 +219,16 @@ function wldEnterSpot(spot,fromX,fromY){
 /* ════════ メインループ ════════ */
 function wldLoop(){
   var G=WORLD;
-  if(!G.running)return;
-  if(G.moving){
-    var t=Math.min(1,(Date.now()-G.mstart)/G.mdur),e=wldEase(t);
-    G.ppx=G.mfx+(G.mtx-G.mfx)*e;
-    G.ppy=G.mfy+(G.mty-G.mfy)*e;
-    if(t>=1)wldArrive();
-  }
-  wldDraw();
+  if(!G.running){G.raf=null;return;}
+  try{
+    if(G.moving){
+      var t=Math.min(1,(Date.now()-G.mstart)/G.mdur),e=wldEase(t);
+      G.ppx=G.mfx+(G.mtx-G.mfx)*e;
+      G.ppy=G.mfy+(G.mty-G.mfy)*e;
+      if(t>=1)wldArrive();
+    }
+    wldDraw();
+  }catch(err){ /* 描画/到着処理で例外が出てもループは止めない(ダンジョン帰還時の固まり防止) */ }
   G.raf=requestAnimationFrame(wldLoop);
 }
 
@@ -235,27 +237,76 @@ function wldStopHold(){
   WORLD.held=null;
   if(WORLD.repTimer){clearInterval(WORLD.repTimer);WORLD.repTimer=null;}
 }
+// 押し続けで連続移動(Dpad・マップタップ共通)。WORLD.held を見て一定間隔で移動する。
+function wldStartHold(dir){
+  WORLD.held=dir; wldMove(dir);
+  if(WORLD.repTimer)clearInterval(WORLD.repTimer);
+  WORLD.repTimer=setInterval(function(){ if(WORLD.held&&WORLD.running)wldMove(WORLD.held); },140);
+}
+// タップ位置(画面座標)→進行方向。プレイヤータイルとの相対位置から8方向を求める。
+function wldScreenToDir(clientX,clientY){
+  var c=wldGetCanvas(); if(!c)return null;
+  var rect=c.getBoundingClientRect();
+  if(rect.width<2||rect.height<2)return null;
+  var ts=wldTileSize(rect.width,rect.height);
+  var cam=wldCamera(rect.width,rect.height,ts);
+  var gx=Math.floor(cam.camX+(clientX-rect.left)/ts);
+  var gy=Math.floor(cam.camY+(clientY-rect.top)/ts);
+  var sx=Math.sign(gx-WORLD.px), sy=Math.sign(gy-WORLD.py);
+  if(sx===0&&sy===0)return null; // 自タイル=移動なし
+  var map={'0,-1':'up','0,1':'down','-1,0':'left','1,0':'right',
+    '-1,-1':'upleft','1,-1':'upright','-1,1':'downleft','1,1':'downright'};
+  return map[sx+','+sy]||null;
+}
 function wldBindControls(){
-  function startHold(dir){
-    WORLD.held=dir; wldMove(dir);
-    if(WORLD.repTimer)clearInterval(WORLD.repTimer);
-    WORLD.repTimer=setInterval(function(){ if(WORLD.held&&WORLD.running)wldMove(WORLD.held); },140);
-  }
-  function endHold(){ wldStopHold(); }
   document.querySelectorAll('#world-dpad [data-wdir]').forEach(function(b){
     var dir=b.getAttribute('data-wdir');
-    b.addEventListener('touchstart',function(e){e.preventDefault();startHold(dir);},{passive:false});
-    b.addEventListener('touchend',function(e){e.preventDefault();endHold();},{passive:false});
-    b.addEventListener('touchcancel',function(e){endHold();},{passive:false});
-    b.addEventListener('mousedown',function(e){e.preventDefault();startHold(dir);});
-    b.addEventListener('mouseup',endHold);
-    b.addEventListener('mouseleave',endHold);
+    b.addEventListener('touchstart',function(e){e.preventDefault();wldStartHold(dir);},{passive:false});
+    b.addEventListener('touchend',function(e){e.preventDefault();wldStopHold();},{passive:false});
+    b.addEventListener('touchcancel',function(e){wldStopHold();},{passive:false});
+    b.addEventListener('mousedown',function(e){e.preventDefault();wldStartHold(dir);});
+    b.addEventListener('mouseup',wldStopHold);
+    b.addEventListener('mouseleave',wldStopHold);
   });
+  // マップタップ移動(連続/ドラッグ操舵)。Dpad表示ON/OFFに関わらず常に有効。
+  var c=wldGetCanvas();
+  if(c&&!c._tapBound){
+    c._tapBound=true;
+    var tapHeld=false;
+    c.addEventListener('pointerdown',function(e){
+      if(!WORLD.running)return;
+      var dir=wldScreenToDir(e.clientX,e.clientY);
+      if(!dir)return;
+      e.preventDefault(); tapHeld=true; wldStartHold(dir);
+    });
+    c.addEventListener('pointermove',function(e){
+      if(!tapHeld)return;
+      var dir=wldScreenToDir(e.clientX,e.clientY);
+      if(dir&&WORLD.held!==dir){ WORLD.held=dir; wldMove(dir); } // ドラッグで方向転換
+    });
+    var up=function(){ if(tapHeld){tapHeld=false; wldStopHold();} };
+    c.addEventListener('pointerup',up);
+    c.addEventListener('pointercancel',up);
+    c.addEventListener('pointerleave',up);
+  }
   window.addEventListener('keydown',function(e){
     if(!WORLD.running)return;
     var m={ArrowUp:'up',ArrowDown:'down',ArrowLeft:'left',ArrowRight:'right'}[e.key];
     if(m){e.preventDefault();wldMove(m);}
   });
+}
+// Dpad(十字キー)表示の切替。タップ移動は常時有効なのでOFFでもプレイ可能。設定はセーブに永続化。
+function wldApplyDpadVisibility(){
+  var on=!(typeof S!=='undefined'&&S.settings&&S.settings.dpadVisible===false);
+  var dp=document.getElementById('world-dpad'); if(dp)dp.style.display=on?'':'none';
+  var tg=document.getElementById('world-dpad-toggle'); if(tg)tg.classList.toggle('off',!on);
+}
+function wldToggleDpad(){
+  if(typeof S==='undefined')return;
+  if(!S.settings)S.settings={};
+  S.settings.dpadVisible=(S.settings.dpadVisible===false); // false→true / (true・未設定)→false
+  if(typeof save==='function')save();
+  wldApplyDpadVisibility();
 }
 
 /* ════════ メニューオーバーレイ(タブUI #root の開閉) ════════ */
@@ -291,6 +342,9 @@ function WORLD_show(){
     WORLD.px=S.worldPos.x; WORLD.py=S.worldPos.y; WORLD.ppx=WORLD.px; WORLD.ppy=WORLD.py;
   }
   WORLD.running=true; WORLD.t0=Date.now();
+  if(typeof wldApplyDpadVisibility==='function')wldApplyDpadVisibility();
+  // 既存のループが死んでいても確実に再始動できるよう、古いrafを破棄してから開始する
+  if(WORLD.raf){cancelAnimationFrame(WORLD.raf);WORLD.raf=null;}
   var tries=0;
   (function ready(){
     var c=wldGetCanvas();

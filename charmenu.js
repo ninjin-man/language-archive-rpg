@@ -209,9 +209,19 @@ function gainLevelExp(amount){
   }
   updateHdr();
 }
-// 画面中央に一定時間表示する非ブロッキングのレベルアップ演出
+// レベルアップ演出。ダンジョン内ではモーダルを出さず、キャラの上に「LEVEL UP」をフロート表示する。
 function showLevelUp(gains){
   if(!gains)return;
+  // ダンジョン探索中: 進行を妨げないよう、画面中央(プレイヤー)上にフロート表示のみ
+  if(typeof DM!=='undefined'&&DM&&DM.dungeon&&typeof dmIsOverlayOpen==='function'&&dmIsOverlayOpen()){
+    try{
+      if(typeof Renderer!=='undefined'&&Renderer.showFloatDamage){
+        Renderer.showFloatDamage(Math.floor(VW/2),Math.floor(VH/2),`LEVEL UP! Lv${gains.level}`,'heal');
+      }
+    }catch(e){}
+    if(typeof dmLog==='function')dmLog(`✨ LEVEL UP！ Lv${gains.level}(HP+${gains.hp} 攻+${gains.atk} 防+${gains.def} 回+${gains.regen})`);
+    return;
+  }
   const ov=document.getElementById('lvup-ov');
   if(!ov)return;
   document.getElementById('lvup-lv').textContent=`Lv ${gains.level}`;

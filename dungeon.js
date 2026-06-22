@@ -701,8 +701,30 @@ function dmv(dir){
   dmEnemyTurn();
 }
 
+// 壁の角越しの斜め移動/攻撃を禁止する判定(true=斜めが壁で塞がれている)
+function dmDiagonalBlocked(fl,x,y,dx,dy){
+  if(dx===0||dy===0)return false;
+  const wall=(ax,ay)=>(ax<0||ax>=GW||ay<0||ay>=GH||fl.grid[ay][ax]===CELL.WALL);
+  return wall(x+dx,y)||wall(x,y+dy); // どちらかの直交セルが壁なら斜めは通さない
+}
 function dma(){
-  dmResolvePending();
+  if(DM.pending){dmResolvePending();return} // 宝箱/イベント/階段の確定を優先
+  if(!dmIsOverlayOpen())return;
+  const fl=DM.floors[DM.floor]; if(!fl)return;
+  const p=fl.playerPos;
+  // 隣接する敵を探して攻撃(向いている方向を優先)。斜めは壁の角がある場合は対象外。
+  const facing=(DM.anim&&DM.anim.dir)||'down';
+  const order=[facing,'up','down','left','right','upleft','upright','downleft','downright'];
+  let target=null,tdir=null;
+  for(const dir of order){
+    const d=DM_DIR_DELTA[dir]; if(!d)continue;
+    if(dmDiagonalBlocked(fl,p.x,p.y,d[0],d[1]))continue;
+    const ex=p.x+d[0], ey=p.y+d[1];
+    const en=(fl.enemies||[]).find(e=>e.curHp>0&&e.x===ex&&e.y===ey);
+    if(en){target=en;tdir=dir;break}
+  }
+  if(target){dmContactAttack(target,tdir)}
+  else{dmLog('🗡 空振り…(周囲に敵はいない)')}
 }
 
 /* ════ 接触攻撃・敵ターン制・敵AI (MVPローグライク化アップデート) ════
@@ -886,8 +908,10 @@ function dmEnemyTurn(){
     const p=fl.playerPos;
     fl.enemies.forEach(e=>{
       if(e.curHp<=0)return;
-      const dist=Math.max(Math.abs(e.x-p.x),Math.abs(e.y-p.y));
-      if(dist<=1){
+      const dx=p.x-e.x, dy=p.y-e.y;
+      const adjacent=Math.max(Math.abs(dx),Math.abs(dy))===1;
+      // 斜め隣接で壁の角がある場合は攻撃できない(プレイヤーの斜め移動制限と対称)
+      if(adjacent&&!dmDiagonalBlocked(fl,e.x,e.y,dx,dy)){
         // 隣接: 攻撃(Phase11: 防御力ステータスを正式に適用)
         const dmg=Math.max(1,(e.atk||1)-getPlayerDef());
         DM.playerHp=Math.max(0,DM.playerHp-dmg);
@@ -896,6 +920,7 @@ function dmEnemyTurn(){
         e.state='aggro';
         return;
       }
+      const dist=Math.max(Math.abs(dx),Math.abs(dy));
       if(dist<=DM_DETECT_RANGE+(e.detectBonus||0))e.state='aggro';
       if(e.state==='aggro')dmMoveEnemyToward(e,p,fl);
       else if(Math.random()<0.4)dmMoveEnemyRandom(e,fl);
