@@ -23,14 +23,14 @@
 
 /* タイル定義は world-data.js で定義済み(WLD_T/WLD_WALK/WLD_COL/WLD_LEGEND)。
    読み込み順の安全策として未定義時のみフォールバック定義する。 */
-if(typeof WLD_T==='undefined'){ var WLD_T={GRASS:0,WATER:1,FOREST:2,MOUNT:3,ROAD:4,SAND:5}; }
-if(typeof WLD_WALK==='undefined'){ var WLD_WALK={0:true,1:false,2:false,3:false,4:true,5:true}; }
-if(typeof WLD_COL==='undefined'){ var WLD_COL={0:'#3f7a3a',1:'#2f6fb0',2:'#234d27',3:'#7d7264',4:'#c2a060',5:'#cdb87a'}; }
+if(typeof WLD_T==='undefined'){ var WLD_T={GRASS:0,WATER:1,FOREST:2,MOUNT:3,ROAD:4,SAND:5,HOUSE:6,FLOOR:7}; }
+if(typeof WLD_WALK==='undefined'){ var WLD_WALK={0:true,1:false,2:false,3:false,4:true,5:true,6:false,7:true}; }
+if(typeof WLD_COL==='undefined'){ var WLD_COL={0:'#3f7a3a',1:'#2f6fb0',2:'#234d27',3:'#7d7264',4:'#c2a060',5:'#cdb87a',6:'#6b4a34',7:'#b9a888'}; }
 
 var WORLD = {
   canvas:null, ctx:null,
   running:false, raf:null,
-  map:null,
+  map:null, curMapId:'overworld',
   grid:null, GW:0, GH:0,
   spots:[],
   px:0, py:0,
@@ -39,16 +39,22 @@ var WORLD = {
   dir:'down',
   VIS:11,
   held:null, repTimer:null,
+  talking:false, talkNpc:null, talkLine:0,
   inited:false,
   t0:Date.now(),
 };
 
 /* ════════ マップ構築(world-data.js から) ════════ */
-function wldBuildMap(){
+/* mapId: 'overworld' / 'town_port' / 'town_west'。
+   forceStart: {x,y} を渡すとその位置から開始(マップ間遷移の戻り先指定に使う)。 */
+function wldBuildMap(mapId, forceStart){
   var G=WORLD;
-  var def=(typeof WLD_OVERWORLD!=='undefined')?WLD_OVERWORLD:null;
+  var maps=(typeof WORLD_MAPS!=='undefined')?WORLD_MAPS:null;
+  var def=null;
+  if(maps){ def = maps[mapId] || maps[G.curMapId] || maps.overworld; }
+  if(!def && typeof WLD_OVERWORLD!=='undefined') def=WLD_OVERWORLD;
   if(!def){ wldBuildFallbackMap(); return; }
-  G.map=def;
+  G.map=def; G.curMapId=def.id;
   var rows=def.rows;
   G.GH=rows.length; G.GW=rows[0].length;
   G.grid=[];
@@ -61,18 +67,28 @@ function wldBuildMap(){
     }
   }
   G.spots=(def.spots||[]).slice();
-  if(typeof DD!=='undefined'){
+  // NPCタイルは通り抜け不可(DQ式: 正面から話しかける)。grid上に壁フラグを重ねる。
+  G._npcBlock={};
+  G.spots.forEach(function(s){ if(s.type==='npc')G._npcBlock[s.gx+','+s.gy]=1; });
+  // 未配置DDの警告はオーバーワールドのみ
+  if(def.id==='overworld' && typeof DD!=='undefined'){
     var placed={}; G.spots.forEach(function(s){ if(s.type==='dungeon')placed[s.id]=1; });
     DD.forEach(function(d){ if(!placed[d.id]&&typeof console!=='undefined')console.warn('[world] 未配置のダンジョン: '+d.id); });
   }
-  var sp=(typeof S!=='undefined'&&S.worldPos)?S.worldPos:null;
-  if(sp&&wldInBounds(sp.x,sp.y)&&wldWalkable(sp.x,sp.y)){ G.px=sp.x; G.py=sp.y; }
-  else if(def.start&&wldWalkable(def.start.x,def.start.y)){ G.px=def.start.x; G.py=def.start.y; }
-  else { var f=wldFindWalkable(); G.px=f.x; G.py=f.y; }
-  G.ppx=G.px; G.ppy=G.py;
+  // 開始位置の決定: forceStart > セーブ(同一マップのみ) > def.start > 走査
+  var start=null;
+  if(forceStart && wldInBounds(forceStart.x,forceStart.y) && wldWalkable(forceStart.x,forceStart.y)) start=forceStart;
+  if(!start){
+    var sp=(typeof S!=='undefined'&&S.worldPos)?S.worldPos:null;
+    var spMap=(sp&&sp.map)?sp.map:'overworld'; // 旧セーブ{x,y}はoverworld扱い(後方互換)
+    if(sp&&spMap===def.id&&wldInBounds(sp.x,sp.y)&&wldWalkable(sp.x,sp.y)) start={x:sp.x,y:sp.y};
+  }
+  if(!start && def.start && wldWalkable(def.start.x,def.start.y)) start={x:def.start.x,y:def.start.y};
+  if(!start){ var f=wldFindWalkable(); start={x:f.x,y:f.y}; }
+  G.px=start.x; G.py=start.y; G.ppx=G.px; G.ppy=G.py;
 }
 function wldBuildFallbackMap(){
-  var G=WORLD; G.GW=12; G.GH=12; G.grid=[]; G.spots=[];
+  var G=WORLD; G.GW=12; G.GH=12; G.grid=[]; G.spots=[]; G._npcBlock={}; G.curMapId='overworld';
   for(var y=0;y<12;y++){ G.grid[y]=[]; for(var x=0;x<12;x++){ G.grid[y][x]=(x===0||y===0||x===11||y===11)?WLD_T.WATER:WLD_T.GRASS; } }
   var firstD=(typeof DD!=='undefined'&&DD[0])?DD[0]:null;
   G.spots.push({gx:6,gy:6,type:'dungeon',id:firstD?firstD.id:'d1',name:firstD?firstD.name:'ダンジョン',icon:'⚔'});
@@ -81,6 +97,7 @@ function wldBuildFallbackMap(){
 function wldInBounds(x,y){ return x>=0&&y>=0&&x<WORLD.GW&&y<WORLD.GH; }
 function wldWalkable(x,y){
   if(!wldInBounds(x,y))return false;
+  if(WORLD._npcBlock&&WORLD._npcBlock[x+','+y])return false; // NPCは壁
   return WLD_WALK[WORLD.grid[y][x]]!==false;
 }
 function wldFindWalkable(){
@@ -149,6 +166,12 @@ function wldDraw(){
       }else if(t===WLD_T.WATER){
         ctx.strokeStyle='rgba(255,255,255,0.10)';ctx.lineWidth=1;
         ctx.beginPath();ctx.moveTo(px+ts*0.25,py+ts*0.6);ctx.lineTo(px+ts*0.55,py+ts*0.6);ctx.stroke();
+      }else if(t===WLD_T.HOUSE){
+        // 建物: 赤い三角屋根で家らしく
+        ctx.fillStyle='#8a3b2e';
+        ctx.beginPath();ctx.moveTo(px+ts*0.5,py+ts*0.12);ctx.lineTo(px+ts*0.92,py+ts*0.5);ctx.lineTo(px+ts*0.08,py+ts*0.5);ctx.closePath();ctx.fill();
+        ctx.fillStyle='#3a2418';
+        ctx.fillRect(px+ts*0.42,py+ts*0.62,ts*0.16,ts*0.28);
       }
     }
   }
@@ -156,6 +179,24 @@ function wldDraw(){
   G.spots.forEach(function(s){
     if(s.gx<x0||s.gx>x1||s.gy<y0||s.gy>y1)return;
     var px=sx(s.gx)+ts/2, py=sy(s.gy)+ts/2;
+    if(s.type==='npc'){
+      // NPCは脈動なし。足元に薄い影、頭上にアイコン。
+      ctx.globalAlpha=0.25;ctx.fillStyle='#000';
+      ctx.beginPath();ctx.ellipse(px,py+ts*0.32,ts*0.3,ts*0.14,0,0,Math.PI*2);ctx.fill();
+      ctx.globalAlpha=1;
+      ctx.font=Math.max(12,Math.floor(ts*0.72))+'px sans-serif';
+      ctx.textAlign='center';ctx.textBaseline='middle';
+      ctx.fillText(s.icon||'🧍',px,py);
+      return;
+    }
+    if(s.type==='exit'){
+      ctx.fillStyle='rgba(20,24,40,0.55)';
+      ctx.fillRect(sx(s.gx)+ts*0.15,sy(s.gy)+ts*0.15,ts*0.7,ts*0.7);
+      ctx.font=Math.max(11,Math.floor(ts*0.6))+'px sans-serif';
+      ctx.textAlign='center';ctx.textBaseline='middle';
+      ctx.fillText('🚪',px,py);
+      return;
+    }
     var isTown=s.type==='town';
     var pulse=0.5+0.5*Math.sin(tnow*2.4);
     ctx.globalAlpha=0.30+pulse*0.4;
@@ -180,6 +221,7 @@ var WLD_DIRS={ up:[0,-1],down:[0,1],left:[-1,0],right:[1,0],
   upleft:[-1,-1],upright:[1,-1],downleft:[-1,1],downright:[1,1] };
 function wldMove(dir){
   var G=WORLD;
+  if(G.talking)return;   // 会話中は移動しない
   if(G.moving)return;
   var d=WLD_DIRS[dir]; if(!d)return;
   G.dir=dir;
@@ -191,29 +233,97 @@ function wldMove(dir){
   G.mfx=G.px;G.mfy=G.py;G.mtx=nx;G.mty=ny;G.mstart=Date.now();G.moving=true;
 }
 function wldEase(t){return 1-Math.pow(1-t,2)}
+function wldSavePos(x,y){
+  if(typeof S==='undefined')return;
+  S.worldPos={map:WORLD.curMapId,x:x,y:y};
+  if(typeof save==='function')save();
+}
 function wldArrive(){
   var G=WORLD;
   var fromX=G.mfx, fromY=G.mfy;   // 進入元(手前マス)
   G.px=G.mtx;G.py=G.mty;G.ppx=G.px;G.ppy=G.py;G.moving=false;
   var hit=G.spots.find(function(s){return s.gx===G.px&&s.gy===G.py;});
   if(hit){ wldEnterSpot(hit,fromX,fromY); }
-  else if(typeof S!=='undefined'){ S.worldPos={x:G.px,y:G.py}; if(typeof save==='function')save(); }
+  else { wldSavePos(G.px,G.py); }
 }
 function wldEnterSpot(spot,fromX,fromY){
   if(spot.type==='dungeon'){
     // 復帰時に入口上で再侵入しないよう、手前マスを保存位置にする(DQ/FF標準)。
     if(typeof S!=='undefined'){
       var back=(fromX!==undefined&&wldWalkable(fromX,fromY))?{x:fromX,y:fromY}:{x:spot.gx,y:spot.gy};
-      S.worldPos=back; S.fromWorld=true;
+      S.worldPos={map:WORLD.curMapId,x:back.x,y:back.y}; S.fromWorld=true;
       if(typeof save==='function')save();
     }
     WORLD_hide();
     if(typeof openDmap==='function')openDmap(spot.id);
     else if(typeof toast==='function')toast('入口: '+spot.name,'g');
   }else if(spot.type==='town'){
-    if(typeof S!=='undefined'){ S.worldPos={x:spot.gx,y:spot.gy}; if(typeof save==='function')save(); }
-    if(typeof toast==='function')toast('🏠 '+(spot.name||'町')+'（準備中）','gr');
+    // フィールド→町マップへ。戻り先(町マーカーの手前マス)を控える。
+    var back=(fromX!==undefined&&wldWalkable(fromX,fromY))?{x:fromX,y:fromY}:{x:spot.gx,y:spot.gy};
+    WORLD._returnTo={map:WORLD.curMapId,x:back.x,y:back.y};
+    wldChangeMap(spot.to||'town_port');
+  }else if(spot.type==='exit'){
+    // 町→フィールドへ。控えておいた戻り先(無ければoverworld start)に戻す。
+    var ret=WORLD._returnTo||{map:'overworld'};
+    WORLD._returnTo=null;
+    wldChangeMap(ret.map||'overworld', (ret.x!==undefined)?{x:ret.x,y:ret.y}:null);
   }
+}
+/* マップ切替: ループを完全停止 → grid差し替え → 再開(プロジェクト版try/catchに依存しない) */
+function wldChangeMap(mapId, forceStart){
+  WORLD_hide();
+  WORLD.talking=false; WORLD.talkNpc=null; WORLD.talkLine=0; wldHideDialog();
+  wldBuildMap(mapId, forceStart);
+  wldSavePos(WORLD.px, WORLD.py);
+  if(typeof S!=='undefined')S.fromWorld=false;
+  WORLD_show();
+}
+
+/* ════════ 会話(DQ式: 正面のNPCに話しかける) ════════ */
+// 「しらべる/はなす」決定。移動していなければ正面1マスのNPCを探して会話開始。
+function wldInteract(){
+  var G=WORLD;
+  if(G.talking){ wldAdvanceDialog(); return; }  // 会話中なら次の行へ
+  if(G.moving)return;
+  var d=WLD_DIRS[G.dir]||[0,1];
+  var fx=G.px+d[0], fy=G.py+d[1];
+  var npc=G.spots.find(function(s){return s.type==='npc'&&s.gx===fx&&s.gy===fy;});
+  // 斜め向き時に正面が空なら直交方向も軽くフォロー(取りこぼし防止)
+  if(!npc&&d[0]!==0&&d[1]!==0){
+    npc=G.spots.find(function(s){return s.type==='npc'&&((s.gx===G.px+d[0]&&s.gy===G.py)||(s.gx===G.px&&s.gy===G.py+d[1]));});
+  }
+  if(npc)wldStartTalk(npc);
+}
+function wldStartTalk(npc){
+  WORLD.talking=true; WORLD.talkNpc=npc; WORLD.talkLine=0;
+  if(typeof wldStopHold==='function')wldStopHold(); // 移動入力を断つ
+  wldRenderDialog();
+}
+function wldAdvanceDialog(){
+  var G=WORLD; if(!G.talking||!G.talkNpc)return;
+  G.talkLine++;
+  var lines=G.talkNpc.lines||[];
+  if(G.talkLine>=lines.length){ wldEndTalk(); }
+  else { wldRenderDialog(); }
+}
+function wldEndTalk(){
+  WORLD.talking=false; WORLD.talkNpc=null; WORLD.talkLine=0;
+  wldHideDialog();
+}
+function wldRenderDialog(){
+  var G=WORLD, npc=G.talkNpc; if(!npc)return;
+  var box=document.getElementById('world-dialog'); if(!box)return;
+  var lines=npc.lines||[''];
+  var line=lines[Math.min(G.talkLine,lines.length-1)]||'';
+  var more=(G.talkLine<lines.length-1);
+  var nameHtml=npc.name?('<div class="wd-name">'+(npc.icon?npc.icon+' ':'')+npc.name+'</div>'):'';
+  box.innerHTML=nameHtml+'<div class="wd-text">'+line+'</div>'+
+    '<div class="wd-more">'+(more?'▼ タップで続き':'タップで閉じる')+'</div>';
+  box.style.display='block';
+}
+function wldHideDialog(){
+  var box=document.getElementById('world-dialog');
+  if(box){ box.style.display='none'; box.innerHTML=''; }
 }
 
 /* ════════ メインループ ════════ */
@@ -239,9 +349,10 @@ function wldStopHold(){
 }
 // 押し続けで連続移動(Dpad・マップタップ共通)。WORLD.held を見て一定間隔で移動する。
 function wldStartHold(dir){
+  if(WORLD.talking)return;
   WORLD.held=dir; wldMove(dir);
   if(WORLD.repTimer)clearInterval(WORLD.repTimer);
-  WORLD.repTimer=setInterval(function(){ if(WORLD.held&&WORLD.running)wldMove(WORLD.held); },140);
+  WORLD.repTimer=setInterval(function(){ if(WORLD.held&&WORLD.running&&!WORLD.talking)wldMove(WORLD.held); },140);
 }
 // タップ位置(画面座標)→進行方向。プレイヤータイルとの相対位置から8方向を求める。
 function wldScreenToDir(clientX,clientY){
@@ -275,12 +386,13 @@ function wldBindControls(){
     var tapHeld=false;
     c.addEventListener('pointerdown',function(e){
       if(!WORLD.running)return;
+      if(WORLD.talking){ e.preventDefault(); wldAdvanceDialog(); return; } // 会話中タップは行送り
       var dir=wldScreenToDir(e.clientX,e.clientY);
       if(!dir)return;
       e.preventDefault(); tapHeld=true; wldStartHold(dir);
     });
     c.addEventListener('pointermove',function(e){
-      if(!tapHeld)return;
+      if(!tapHeld||WORLD.talking)return;
       var dir=wldScreenToDir(e.clientX,e.clientY);
       if(dir&&WORLD.held!==dir){ WORLD.held=dir; wldMove(dir); } // ドラッグで方向転換
     });
@@ -289,8 +401,22 @@ function wldBindControls(){
     c.addEventListener('pointercancel',up);
     c.addEventListener('pointerleave',up);
   }
+  // 会話ダイアログ: タップで行送り/閉じる
+  var dlg=document.getElementById('world-dialog');
+  if(dlg&&!dlg._bound){
+    dlg._bound=true;
+    dlg.addEventListener('click',function(e){ e.stopPropagation(); wldAdvanceDialog(); });
+  }
+  // 「はなす/しらべる」決定ボタン
+  var talkBtn=document.getElementById('world-talk-btn');
+  if(talkBtn&&!talkBtn._bound){
+    talkBtn._bound=true;
+    talkBtn.addEventListener('click',function(e){ e.preventDefault(); wldInteract(); });
+  }
   window.addEventListener('keydown',function(e){
     if(!WORLD.running)return;
+    if(e.key==='Enter'||e.key===' '){ e.preventDefault(); wldInteract(); return; }
+    if(WORLD.talking)return;
     var m={ArrowUp:'up',ArrowDown:'down',ArrowLeft:'left',ArrowRight:'right'}[e.key];
     if(m){e.preventDefault();wldMove(m);}
   });
@@ -333,12 +459,18 @@ function enterWorld(){
 
 /* ════════ ループ制御 ════════ */
 function WORLD_show(){
-  if(!WORLD.grid)wldBuildMap();
+  // 初回構築: セーブにマップIDがあればそのマップを開く(町で終了→再起動でも復元)
+  if(!WORLD.grid){
+    var sm=(typeof S!=='undefined'&&S.worldPos&&S.worldPos.map)?S.worldPos.map:'overworld';
+    wldBuildMap(sm);
+  }
   // 直前の移動アニメ・長押しが残っていてもクリーンに開始する(ダンジョン帰還時の固まり防止)
   WORLD.moving=false;
+  WORLD.talking=false; WORLD.talkNpc=null; WORLD.talkLine=0; wldHideDialog();
   if(typeof wldStopHold==='function')wldStopHold();
-  // セーブ位置を現在地として反映(手前マスに戻す処理が効くように)
-  if(typeof S!=='undefined'&&S.worldPos&&wldInBounds(S.worldPos.x,S.worldPos.y)&&wldWalkable(S.worldPos.x,S.worldPos.y)){
+  // セーブ位置を現在地として反映(同一マップのときのみ。別マップ遷移はwldBuildMapのforceStartで配置済み)
+  if(typeof S!=='undefined'&&S.worldPos&&(S.worldPos.map||'overworld')===WORLD.curMapId
+     &&wldInBounds(S.worldPos.x,S.worldPos.y)&&wldWalkable(S.worldPos.x,S.worldPos.y)){
     WORLD.px=S.worldPos.x; WORLD.py=S.worldPos.y; WORLD.ppx=WORLD.px; WORLD.ppy=WORLD.py;
   }
   WORLD.running=true; WORLD.t0=Date.now();
