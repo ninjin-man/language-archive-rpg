@@ -15,7 +15,8 @@ const SG = {
   pos: {},           // word -> {x,y}
   clusters: {},      // cat  -> {x,y,r,count,words[]}
   adj: {},           // word -> Set(neighbour words)
-  bridges: [],       // [{a,b,catA,catB,lock}]  cross-cluster links
+  bridges: [],       // [{a,b,catA,catB,gate}]  cross-cluster links (gate=ゲートノードID)
+  gates: {},         // gateId -> {a,b,x,y,stat:{k,v,icon,lbl},cost}  UX3: FF10式ロックノード
   catColor: {},      // cat -> hex
   built: false,
   vb: null,          // current viewBox {x,y,w,h}
@@ -102,8 +103,23 @@ function sgBuild() {
       if (!best || d < best.d) best = { x, y, d };
     }));
     if (best) {
-      SG.adj[best.x].add(best.y); SG.adj[best.y].add(best.x);
-      SG.bridges.push({ a: best.x, b: best.y, catA: a, catB: b });
+      // UX3: ブリッジ中点にゲートノード(ステータスノード)を挿入。
+      // a-b 直結ではなく a-gate-b とし、ゲート起動(記憶の球を消費)しないと渡れない = FF10式ロック。
+      const gid = '@g' + SG.bridges.length;
+      const gx = Math.round((SG.pos[best.x].x + SG.pos[best.y].x) / 2);
+      const gy = Math.round((SG.pos[best.x].y + SG.pos[best.y].y) / 2);
+      const SG_STATS = [
+        { k: 'hp',    v: 5, icon: '❤', lbl: 'HP +5' },
+        { k: 'atk',   v: 1, icon: '⚔', lbl: 'ATK +1' },
+        { k: 'def',   v: 1, icon: '🛡', lbl: 'DEF +1' },
+        { k: 'regen', v: 1, icon: '✚', lbl: 'REGEN +1' },
+      ];
+      const stat = SG_STATS[SG.bridges.length % SG_STATS.length];
+      SG.pos[gid] = { x: gx, y: gy };
+      SG.gates[gid] = { a: best.x, b: best.y, stat: stat, cost: 2 };
+      SG.adj[gid] = new Set([best.x, best.y]);
+      SG.adj[best.x].add(gid); SG.adj[best.y].add(gid);
+      SG.bridges.push({ a: best.x, b: best.y, catA: a, catB: b, gate: gid });
       if (isBridge) merge(a, b);
     }
   });
@@ -132,6 +148,28 @@ function sgCursorWord() {
 function sgIsReachable(word) {
   const cur = sgCursorWord();
   return word === cur || (SG.adj[cur] && SG.adj[cur].has(word));
+}
+
+/* ── UX3: ゲート・記憶の球ヘルパー ── */
+function sgIsGate(id) { return typeof id === 'string' && id.charAt(0) === '@'; }
+function sgGateOn(id) { return !!(S.sgGates && S.sgGates[id]); }
+function sgSpheres() { return S.spheres || 0; }
+// ノードの「点灯」状態(ゲートは起動済み、単語は発見済み)
+function sgNodeLit(id) { return sgIsGate(id) ? sgGateOn(id) : gst(id) !== 'unknown'; }
+// ノードの所属カテゴリ色(ゲートは金)
+function sgNodeCol(id) {
+  if (sgIsGate(id)) return '#c8a84b';
+  const w = WM[id]; return w ? SG.catColor[w.archive] : '#8090a0';
+}
+// 起動演出: ノード位置に一時的な拡大円を出す(軽量: CSSアニメ→自動remove)
+function sgActFx(id) {
+  const p = SG.pos[id]; if (!p) return;
+  const g = document.getElementById('sg-cursor'); if (!g) return;
+  const c = document.createElementNS(SG.svgNS, 'circle');
+  c.setAttribute('cx', p.x); c.setAttribute('cy', p.y); c.setAttribute('r', SG.NODE_R);
+  c.setAttribute('class', 'sg-actfx');
+  g.appendChild(c);
+  setTimeout(() => { if (c.parentNode) c.parentNode.removeChild(c); }, 750);
 }
 
 /* ── viewBox helpers ── */
@@ -189,16 +227,17 @@ function sgDraw() {
   const cursorG = document.getElementById('sg-cursor');
   let paths = '', bridges = '', nodes = '', labels = '';
 
-  // intra-cluster paths
+  // intra-cluster paths (ゲートIDが混ざるため WM 直アクセスを避けてヘルパー経由に)
   const drawn = new Set();
   Object.entries(SG.adj).forEach(([w, set]) => {
     set.forEach(o => {
       const key = [w, o].sort().join('|'); if (drawn.has(key)) return; drawn.add(key);
       const a = SG.pos[w], b = SG.pos[o]; if (!a || !b) return;
-      const sameCat = WM[w].archive === WM[o].archive;
-      const lit = gst(w) !== 'unknown' && gst(o) !== 'unknown';
+      const gateSide = sgIsGate(w) || sgIsGate(o);
+      const sameCat = !gateSide && WM[w] && WM[o] && WM[w].archive === WM[o].archive;
+      const lit = sgNodeLit(w) && sgNodeLit(o);
       const reach = sgIsReachable(w) || sgIsReachable(o);
-      const col = lit ? SG.catColor[WM[w].archive] : (reach ? '#5d6890' : '#384066');
+      const col = lit ? sgNodeCol(sgIsGate(w) ? w : (sgIsGate(o) ? o : w)) : (reach ? '#5d6890' : '#384066');
       const op = lit ? 0.85 : (reach ? 0.65 : 0.45), wid = lit ? 3 : 2;
       const line = `<line x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}" stroke="${col}" stroke-width="${wid}" opacity="${op}" stroke-linecap="round"${lit ? '' : ' stroke-dasharray="3 7"'}/>`;
       if (sameCat) paths += line; else bridges += line;
@@ -226,7 +265,35 @@ function sgDraw() {
         ${unk ? `<text x="${p.x}" y="${p.y + 5}" text-anchor="middle" font-size="15" fill="${reachable ? '#c4cbe8' : '#6b7498'}" opacity="0.95">?</text>`
         : `<text x="${p.x}" y="${p.y + 5}" text-anchor="middle" font-size="14">${CICON[w.archive] || '•'}</text>`}
       </g>`;
+    // UX3: 到達可能な未知ノードには解放コスト(記憶の球1)のバッジ
+    if (unk && reachable && !isCur) nodes += `<text x="${p.x + SG.NODE_R + 2}" y="${p.y - SG.NODE_R + 4}" font-size="11" opacity="0.9">🔮</text>`;
     if (!unk) labels += `<text x="${p.x}" y="${p.y + SG.NODE_R + 13}" text-anchor="middle" font-size="11" font-weight="700" fill="${col}" opacity="0.95">${w.word}</text>`;
+  });
+
+  // UX3: ゲートノード(FF10式ロック) — ひし形。未起動=🔒とコスト、起動済み=ステータスアイコンと発光
+  Object.entries(SG.gates).forEach(([gid, g]) => {
+    const p = SG.pos[gid]; if (!p) return;
+    const on = sgGateOn(gid), reachable = sgIsReachable(gid), sel = gid === SG.sel;
+    const R = SG.NODE_R + 1;
+    if (on) nodes += `<circle cx="${p.x}" cy="${p.y}" r="${R + 9}" fill="#c8a84b" opacity="0.15"/>`;
+    if (reachable && !on) nodes += `<circle cx="${p.x}" cy="${p.y}" r="${R + 6}" fill="none" stroke="#c8a84b" stroke-width="1.5" opacity="0.55" class="sg-reach"/>`;
+    nodes += `<g class="sg-node${reachable ? ' reach' : ''}" data-w="${gid}" style="cursor:${reachable ? 'pointer' : 'default'}">
+        <rect x="${p.x - R}" y="${p.y - R}" width="${R * 2}" height="${R * 2}" rx="4"
+          transform="rotate(45 ${p.x} ${p.y})"
+          fill="${on ? '#c8a84b' : (reachable ? '#241f10' : '#151208')}" fill-opacity="${on ? 0.35 : 0.95}"
+          stroke="${on ? '#c8a84b' : (reachable ? '#a8904b' : '#4a3f22')}" stroke-width="${sel ? 4 : 2.5}"/>
+        <text x="${p.x}" y="${p.y + 5}" text-anchor="middle" font-size="14" fill="${on ? '#ffe9ad' : '#8a7a4a'}">${on ? g.stat.icon : '🔒'}</text>
+      </g>`;
+    if (!on && reachable) nodes += `<text x="${p.x}" y="${p.y + R + 16}" text-anchor="middle" font-size="10" fill="#c8a84b" opacity="0.9">🔮${g.cost}</text>`;
+    if (on) labels += `<text x="${p.x}" y="${p.y + R + 15}" text-anchor="middle" font-size="10" font-weight="700" fill="#c8a84b" opacity="0.9">${g.stat.lbl}</text>`;
+  });
+
+  // UX3: クラスタラベル — 1語も発見していない領域は「???」(霧の先の欲望)、発見済みならカテゴリ名
+  Object.entries(SG.clusters).forEach(([cat, cl]) => {
+    const anyKnown = cl.words.some(w => gst(w) !== 'unknown');
+    const name = anyKnown ? ((typeof CJP !== 'undefined' && CJP[cat]) || cat) : '？？？';
+    const col = anyKnown ? SG.catColor[cat] : '#4a5478';
+    labels += `<text x="${cl.x}" y="${cl.y - cl.r - 14}" text-anchor="middle" font-size="17" font-weight="800" fill="${col}" opacity="${anyKnown ? 0.85 : 0.6}"${anyKnown ? '' : ' letter-spacing="3"'}>${anyKnown ? (CICON[cat] || '') + ' ' + name : name}</text>`;
   });
 
   // cursor marker (FFX white pointer)
@@ -242,13 +309,47 @@ function sgDraw() {
 function sgTapNode(word) {
   const cur = sgCursorWord();
   SG.sel = word;
-  if (sgIsReachable(word) && word !== cur) {
-    // walk: move cursor here, discover if unknown
-    S.gridPos = word; save();
-    if (gst(word) === 'unknown') { discover(word); }   // discovery card + state + EXP (ui.js)
-    sgPanTo(word);
+  if (word !== cur && sgIsReachable(word)) {
+    if (sgIsGate(word)) {
+      // UX3: ゲートノード。起動済みなら無償で通行、未起動なら記憶の球を消費して起動+ステータス永続加算。
+      if (sgGateOn(word)) {
+        S.gridPos = word; save(); sgPanTo(word);
+      } else {
+        const g = SG.gates[word];
+        if (sgSpheres() >= g.cost) {
+          S.spheres -= g.cost;
+          if (!S.sgGates) S.sgGates = {};
+          S.sgGates[word] = 1;
+          if (!S.stats) S.stats = {};
+          S.stats[g.stat.k] = (S.stats[g.stat.k] || 0) + g.stat.v;
+          S.gridPos = word; save();
+          sgActFx(word);
+          if (typeof toast === 'function') toast(`⭐ ゲート起動！ ${g.stat.lbl}`, 'g');
+          if (typeof updateHdr === 'function') updateHdr();
+          sgPanTo(word);
+        } else {
+          if (typeof toast === 'function') toast(`記憶の球が足りない（必要 🔮${g.cost}・クイズ正解で獲得）`, 'r');
+        }
+      }
+    } else if (gst(word) === 'unknown') {
+      // UX3: 未知ノードの解放は記憶の球1個を消費(FF10のノード起動)。
+      if (sgSpheres() >= 1) {
+        S.spheres -= 1;
+        S.gridPos = word; save();
+        discover(word);   // discovery card + state + EXP (ui.js)
+        sgActFx(word);
+        sgPanTo(word);
+      } else {
+        if (typeof toast === 'function') toast('記憶の球が足りない（クイズ正解で 🔮+1）', 'r');
+      }
+    } else {
+      // 発見済みノードへの移動は無償(FF10: 起動済みノードの通行は自由)
+      S.gridPos = word; save();
+      sgPanTo(word);
+    }
   }
   sgDraw();
+  sgUpdateHdr();
   sgShowDetail(word);
 }
 
@@ -343,6 +444,33 @@ function sgRecenter() { sgPanTo(sgCursorWord()); }
 
 /* ── detail panel (right sheet) ── */
 function sgShowDetail(word) {
+  // UX3: ゲートノード専用パネル
+  if (sgIsGate(word)) {
+    const g = SG.gates[word]; if (!g) return;
+    const on = sgGateOn(word), reach = sgIsReachable(word);
+    const top = document.getElementById('sg-det-top');
+    top.innerHTML = `
+      <div class="sgd-wr">
+        <div class="sgd-ico" style="border-color:#c8a84b;color:#c8a84b">${on ? g.stat.icon : '🔒'}</div>
+        <div><div class="sgd-w">${on ? 'ゲート（起動済み）' : '封印されたゲート'}</div>
+        <div class="sgd-j">${on ? g.stat.lbl + ' を獲得済み' : 'クラスタ間の道を封じる結界'}</div></div>
+      </div>`;
+    let body = `<div class="sgd-sec"><div class="sgd-lbl">効果</div>
+      <div class="sgd-line" style="color:${on ? 'var(--green)' : 'var(--t1)'}">${on ? '✓ ' : ''}${g.stat.lbl}（永続ステータス）</div></div>`;
+    if (!on) body += `<div class="sgd-sec"><div class="sgd-lbl">起動コスト</div>
+      <div class="sgd-row"><span>🔮 記憶の球 ×${g.cost}</span><span style="color:${sgSpheres() >= g.cost ? 'var(--green)' : 'var(--red,#e06060)'}">所持 ${sgSpheres()}</span></div>
+      <div class="sgd-line" style="font-size:11px;color:var(--t2)">記憶の球はクイズ正解で獲得できる</div></div>`;
+    document.getElementById('sg-det-body').innerHTML = body;
+    const ftr = document.getElementById('sg-det-ftr'); ftr.style.display = 'flex';
+    const btn = document.getElementById('sg-det-btn');
+    if (on) { btn.textContent = '✓ 起動済み'; btn.disabled = !reach; btn.onclick = reach ? (() => sgTapNode(word)) : null; }
+    else if (!reach) { btn.textContent = '🔒 到達できない'; btn.disabled = true; btn.onclick = null; }
+    else if (sgSpheres() < g.cost) { btn.textContent = `🔮${g.cost} 不足（クイズで獲得）`; btn.disabled = true; btn.onclick = null; }
+    else { btn.textContent = `🔮${g.cost} 消費して起動`; btn.disabled = false; btn.onclick = () => sgTapNode(word); }
+    document.getElementById('sg-det').classList.add('open');
+    document.getElementById('sg-backdrop').classList.add('show');
+    return;
+  }
   const w = WM[word]; if (!w) return;
   const si = gsi(word), unk = si === 0, col = SG.catColor[w.archive];
   const mc = ['#18203a', '#4dc8e0', '#1e5090', '#c8a84b', '#e0982a'];
@@ -363,7 +491,7 @@ function sgShowDetail(word) {
   if (unk) {
     const reach = sgIsReachable(word);
     body = `<div class="sgd-sec"><div class="sgd-lbl">状態</div>
-      <div class="sgd-line">${reach ? 'ここまで道がつながっている。踏み込めば発見できる。' : 'まだ道がつながっていない。隣接ノードから辿ろう。'}</div></div>`;
+      <div class="sgd-line">${reach ? '道はつながっている。🔮記憶の球1個で解放できる。' : 'まだ道がつながっていない。隣接ノードから辿ろう。'}</div></div>`;
   } else {
     const pct = Math.round(si / (ST.length - 1) * 100);
     body = `<div class="sgd-sec"><div class="sgd-lbl">習熟度</div>
@@ -391,9 +519,9 @@ function sgShowDetail(word) {
   const btn = document.getElementById('sg-det-btn');
   if (unk) {
     const reach = sgIsReachable(word);
-    btn.textContent = reach ? '🔍 ここへ踏み込む' : '🔒 到達できない';
-    btn.disabled = !reach;
-    btn.onclick = () => { sgTapNode(word); };
+    if (!reach) { btn.textContent = '🔒 到達できない'; btn.disabled = true; btn.onclick = null; }
+    else if (sgSpheres() < 1) { btn.textContent = '🔮1 不足（クイズで獲得）'; btn.disabled = true; btn.onclick = null; }
+    else { btn.textContent = '🔮1 消費して解放'; btn.disabled = false; btn.onclick = () => { sgTapNode(word); }; }
   } else if (si >= ST.length - 1) {
     btn.textContent = '✦ マスター済み'; btn.disabled = true; btn.onclick = null;
   } else {
@@ -419,6 +547,7 @@ function sgUpdateHdr() {
   const el = document.getElementById('sg-pct'); if (el) el.textContent = Math.round(known / total * 100) + '%';
   const bar = document.getElementById('sg-fill'); if (bar) bar.style.width = Math.round(known / total * 100) + '%';
   const cnt = document.getElementById('sg-count'); if (cnt) cnt.textContent = `${known} / ${total}`;
+  const sph = document.getElementById('sg-sph'); if (sph) sph.textContent = `🔮 ${sgSpheres()}`;  // UX3: 記憶の球
 }
 
 /* ── minimap of clusters ── */

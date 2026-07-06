@@ -233,9 +233,23 @@ function wldMove(dir){
   G.mfx=G.px;G.mfy=G.py;G.mtx=nx;G.mty=ny;G.mstart=Date.now();G.moving=true;
 }
 function wldEase(t){return 1-Math.pow(1-t,2)}
+/* 位置保存: メモリ(S.worldPos)は毎歩更新、localStorage書込は1.5秒に1回まで。
+   重要遷移(ダンジョン/マップ切替/メニュー/離脱)は wldFlushSave() で即時書込。 */
+var WLD_SAVE_MIN_MS=1500;
 function wldSavePos(x,y){
   if(typeof S==='undefined')return;
   S.worldPos={map:WORLD.curMapId,x:x,y:y};
+  var now=Date.now();
+  if(!WORLD._lastSave||now-WORLD._lastSave>=WLD_SAVE_MIN_MS){
+    WORLD._lastSave=now;
+    if(typeof save==='function')save();
+  }else{
+    WORLD._saveDirty=true;   // 後でflushする
+  }
+}
+function wldFlushSave(){
+  if(typeof S==='undefined')return;
+  WORLD._lastSave=Date.now(); WORLD._saveDirty=false;
   if(typeof save==='function')save();
 }
 function wldArrive(){
@@ -243,8 +257,10 @@ function wldArrive(){
   var fromX=G.mfx, fromY=G.mfy;   // 進入元(手前マス)
   G.px=G.mtx;G.py=G.mty;G.ppx=G.px;G.ppy=G.py;G.moving=false;
   var hit=G.spots.find(function(s){return s.gx===G.px&&s.gy===G.py;});
-  if(hit){ wldEnterSpot(hit,fromX,fromY); }
-  else { wldSavePos(G.px,G.py); }
+  if(hit){ wldEnterSpot(hit,fromX,fromY); return; }
+  wldSavePos(G.px,G.py);
+  // 押しっぱなし中は即座に次のタイルへ(スタッター除去: DQ/FFの滑らかな連続歩行)
+  if(G.held)wldMove(G.held);
 }
 function wldEnterSpot(spot,fromX,fromY){
   if(spot.type==='dungeon'){
@@ -252,7 +268,7 @@ function wldEnterSpot(spot,fromX,fromY){
     if(typeof S!=='undefined'){
       var back=(fromX!==undefined&&wldWalkable(fromX,fromY))?{x:fromX,y:fromY}:{x:spot.gx,y:spot.gy};
       S.worldPos={map:WORLD.curMapId,x:back.x,y:back.y}; S.fromWorld=true;
-      if(typeof save==='function')save();
+      wldFlushSave();   // 重要遷移は即時書込
     }
     WORLD_hide();
     if(typeof openDmap==='function')openDmap(spot.id);
@@ -274,24 +290,32 @@ function wldChangeMap(mapId, forceStart){
   WORLD_hide();
   WORLD.talking=false; WORLD.talkNpc=null; WORLD.talkLine=0; wldHideDialog();
   wldBuildMap(mapId, forceStart);
-  wldSavePos(WORLD.px, WORLD.py);
-  if(typeof S!=='undefined')S.fromWorld=false;
+  if(typeof S!=='undefined'){
+    S.worldPos={map:WORLD.curMapId,x:WORLD.px,y:WORLD.py};
+    S.fromWorld=false;
+  }
+  wldFlushSave();   // マップ切替は即時書込
   WORLD_show();
 }
 
 /* ════════ 会話(DQ式: 正面のNPCに話しかける) ════════ */
+// 正面(向いている方向の1マス先)のNPCを返す。斜め向き時は直交方向もフォロー。
+function wldFrontNpc(){
+  var G=WORLD;
+  var d=WLD_DIRS[G.dir]||[0,1];
+  var fx=G.px+d[0], fy=G.py+d[1];
+  var npc=G.spots.find(function(s){return s.type==='npc'&&s.gx===fx&&s.gy===fy;});
+  if(!npc&&d[0]!==0&&d[1]!==0){
+    npc=G.spots.find(function(s){return s.type==='npc'&&((s.gx===G.px+d[0]&&s.gy===G.py)||(s.gx===G.px&&s.gy===G.py+d[1]));});
+  }
+  return npc||null;
+}
 // 「しらべる/はなす」決定。移動していなければ正面1マスのNPCを探して会話開始。
 function wldInteract(){
   var G=WORLD;
   if(G.talking){ wldAdvanceDialog(); return; }  // 会話中なら次の行へ
   if(G.moving)return;
-  var d=WLD_DIRS[G.dir]||[0,1];
-  var fx=G.px+d[0], fy=G.py+d[1];
-  var npc=G.spots.find(function(s){return s.type==='npc'&&s.gx===fx&&s.gy===fy;});
-  // 斜め向き時に正面が空なら直交方向も軽くフォロー(取りこぼし防止)
-  if(!npc&&d[0]!==0&&d[1]!==0){
-    npc=G.spots.find(function(s){return s.type==='npc'&&((s.gx===G.px+d[0]&&s.gy===G.py)||(s.gx===G.px&&s.gy===G.py+d[1]));});
-  }
+  var npc=wldFrontNpc();
   if(npc)wldStartTalk(npc);
 }
 function wldStartTalk(npc){
@@ -327,6 +351,14 @@ function wldHideDialog(){
 }
 
 /* ════════ メインループ ════════ */
+// 「はなす」ボタンは正面にNPCがいる時だけ表示(押しても無反応、を無くす)。DOM更新は状態変化時のみ。
+function wldUpdateTalkBtn(){
+  var show=!WORLD.talking&&!WORLD.moving&&!!wldFrontNpc();
+  if(WORLD._talkBtnShown===show)return;
+  WORLD._talkBtnShown=show;
+  var b=document.getElementById('world-talk-btn');
+  if(b)b.classList.toggle('show',show);
+}
 function wldLoop(){
   var G=WORLD;
   if(!G.running){G.raf=null;return;}
@@ -337,6 +369,7 @@ function wldLoop(){
       G.ppy=G.mfy+(G.mty-G.mfy)*e;
       if(t>=1)wldArrive();
     }
+    wldUpdateTalkBtn();
     wldDraw();
   }catch(err){ /* 描画/到着処理で例外が出てもループは止めない(ダンジョン帰還時の固まり防止) */ }
   G.raf=requestAnimationFrame(wldLoop);
@@ -438,6 +471,8 @@ function wldToggleDpad(){
 /* ════════ メニューオーバーレイ(タブUI #root の開閉) ════════ */
 function openMenuOverlay(){
   document.body.classList.add('menu-open');
+  WORLD_hide();                       // メニュー中は描画ループ停止(バッテリー節約)
+  wldFlushSave();                     // 位置を即時保存
   if(typeof updateHdr==='function')updateHdr();
   if(typeof checkJobs==='function')checkJobs();
   var scr=(typeof S!=='undefined'&&S.screen)?S.screen:'arc';
@@ -453,8 +488,20 @@ function closeMenuOverlay(){
 function enterWorld(){
   document.body.classList.remove('menu-open');
   document.body.classList.add('world-active');
-  if(typeof S!=='undefined'){S.fromWorld=false;if(typeof save==='function')save();}
+  if(typeof S!=='undefined')S.fromWorld=false;
+  wldFlushSave();
   WORLD_show();
+  // 初回だけ操作ヒント(一度きり)
+  if(typeof S!=='undefined'){
+    if(!S.flags)S.flags={};
+    if(!S.flags.worldHint){
+      S.flags.worldHint=1; wldFlushSave();
+      if(typeof toast==='function'){
+        toast('🏠のマークは町、🔥や🕳はダンジョン。乗ると入れます','gr');
+        setTimeout(function(){ if(typeof toast==='function')toast('☰でメニュー、NPCの正面で「はなす」','gr'); },2600);
+      }
+    }
+  }
 }
 
 /* ════════ ループ制御 ════════ */
@@ -501,6 +548,10 @@ function wldInit(){
   window.addEventListener('resize',onResize);
   window.addEventListener('orientationchange',function(){setTimeout(onResize,120);});
   if(window.visualViewport)window.visualViewport.addEventListener('resize',onResize);
+  // アプリ離脱/バックグラウンド移行時に未保存の位置を確実に書き込む(iOSはpagehideが確実)
+  var flush=function(){ if(WORLD._saveDirty)wldFlushSave(); };
+  window.addEventListener('pagehide',flush);
+  document.addEventListener('visibilitychange',function(){ if(document.visibilityState==='hidden')flush(); });
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',wldInit);
 else wldInit();

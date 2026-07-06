@@ -5,7 +5,8 @@ let S={screen:'arc',job:'novice',unlockedJobs:['novice'],exp:0,ap:0,gold:0,relic
   dungeonRecords:{maxFloor:0,totalRuns:0,kills:0},
   level:1,lvExp:0,inventory:[], // Phase10-12: 持ち物・レベルアップ(ローグライクコアループ)
   dex:{items:{},monsters:{}},   // Phase20: 図鑑基盤(アイテム/モンスターの発見フラグ)
-  gridPos:null,                 // PhaseA: スフィア盤のカーソル位置(単語名)
+  gridPos:null,                 // PhaseA: スフィア盤のカーソル位置(単語名 or ゲートID)
+  spheres:3,sgGates:{},         // UX3: 記憶の球(ノード解放通貨、初期3個) / 起動済みゲート
   worldPos:null,fromWorld:false,// PhaseW1: オーバーワールド上のプレイヤー座標 / ダンジョン帰還先フラグ
   ws:{},cwrd:[],citem:[],clog:[],filt:'all',off:{x:0,y:0},
   settings:{dpadVisible:true}}; // 操作設定: ダンジョンの十字キー(Dpad)表示ON/OFF。OFFでもタップ移動は常時有効
@@ -43,6 +44,9 @@ function load(){
   // 操作設定の補完(旧セーブにsettingsが無い場合)
   if(!S.settings)S.settings={};
   if(S.settings.dpadVisible===undefined)S.settings.dpadVisible=true;
+  // UX3: 記憶の球の補完。既存セーブには初回ボーナス3球を付与(デッドロック回避)
+  if(S.spheres===undefined)S.spheres=3;
+  if(!S.sgGates)S.sgGates={};
   // 装備スロットの補完(旧セーブに鎧スロットが無い場合)
   if(!S.equipment)S.equipment={weapon:null,shield:null,armor:null,accessory:null};
   if(S.equipment.armor===undefined)S.equipment.armor=null;

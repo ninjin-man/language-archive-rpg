@@ -312,7 +312,8 @@ function ansQ(btn,chosen,correct){
   const w=QS.words[QS.idx];
   if(chosen===correct){
     btn.classList.add('ok');QS.score++;
-    document.getElementById('q-r').textContent='✓ 正解！';document.getElementById('q-r').className='qr w';
+    S.spheres=(S.spheres||0)+1;  // UX3: 記憶の球+1(スフィア盤のノード解放通貨)
+    document.getElementById('q-r').textContent='✓ 正解！ 🔮+1';document.getElementById('q-r').className='qr w';
     if(gst(w.word)==='unknown'){discover(w.word);DM.wordsFound++}else advance(w.word);
     if(dots[QS.idx])dots[QS.idx].className='qdot d';
   }else{
