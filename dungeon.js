@@ -1110,6 +1110,20 @@ function dmKillEnemy(enemy){
   DM.battleDiscoverBonus=(DM.battleDiscoverBonus||0)+0.05;
   // Phase12: 敵撃破でレベルアップ用経験値を取得(Archive EXPと同額を流用、固定成長)
   gainLevelExp(aexpGain);
+  // FF10化: 撃破AP → スフィアレベル(盤の移動力)。10APで+1、上限99(FF10準拠)。
+  S.sap=(S.sap||0)+aexpGain;
+  while(S.sap>=10&&(S.slv||0)<99){
+    S.sap-=10;S.slv=(S.slv||0)+1;
+    dmLog(`🔷 スフィアレベルが上がった！(S.Lv ${S.slv})`);
+  }
+  // FF10化: 球ドロップ(通常30%/レア以上50%)。種別: 記憶(単語)/力(攻防ゲート)/命(HP再生ゲート)
+  const sphRate=(enemy.rarity==='rare'||enemy.rarity==='epic'||enemy.rarity==='legendary')?0.5:0.3;
+  if(Math.random()<sphRate){
+    const r3=Math.random();
+    if(r3<0.34){S.spheres=(S.spheres||0)+1;dmLog('🔮 記憶の球を手に入れた！');}
+    else if(r3<0.67){S.sphP=(S.sphP||0)+1;dmLog('⚔ 力の球を手に入れた！');}
+    else{S.sphL=(S.sphL||0)+1;dmLog('❤ 命の球を手に入れた！');}
+  }
   // ドロップは敵がいた床マスに生成する(占有マスなら隣接へずらす)。自動取得はせず床に残す(シレン式)。
   let dropMsg='';
   const drops=fl?rollEnemyDrops(enemy):[];

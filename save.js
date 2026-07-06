@@ -6,7 +6,8 @@ let S={screen:'arc',job:'novice',unlockedJobs:['novice'],exp:0,ap:0,gold:0,relic
   level:1,lvExp:0,inventory:[], // Phase10-12: 持ち物・レベルアップ(ローグライクコアループ)
   dex:{items:{},monsters:{}},   // Phase20: 図鑑基盤(アイテム/モンスターの発見フラグ)
   gridPos:null,                 // PhaseA: スフィア盤のカーソル位置(単語名 or ゲートID)
-  spheres:3,sgGates:{},         // UX3: 記憶の球(ノード解放通貨、初期3個) / 起動済みゲート
+  spheres:3,sgGates:{},         // UX3: 記憶の球(単語ノード発動=アビリティスフィア相当) / 起動済みゲート
+  slv:10,sap:0,sphP:2,sphL:2,   // FF10化: スフィアレベル(移動力,上限99)/APゲージ(10でS.Lv+1)/力の球/命の球
   identified:{},                // UX1c: 未識別アイテムの識別状態(itemId:1)。使うと永続的に判明する
   craftTried:[],                // UX2: 調合で失敗した組み合わせの記録(上限200)。✗表示で再浪費を防ぐ
   worldPos:null,fromWorld:false,// PhaseW1: オーバーワールド上のプレイヤー座標 / ダンジョン帰還先フラグ
@@ -49,6 +50,11 @@ function load(){
   // UX3: 記憶の球の補完。既存セーブには初回ボーナス3球を付与(デッドロック回避)
   if(S.spheres===undefined)S.spheres=3;
   if(!S.sgGates)S.sgGates={};
+  // FF10化: スフィアレベル等の補完(既存セーブに移動力とゲート用の球を付与)
+  if(S.slv===undefined)S.slv=10;
+  if(S.sap===undefined)S.sap=0;
+  if(S.sphP===undefined)S.sphP=2;
+  if(S.sphL===undefined)S.sphL=2;
   // UX1c: 識別状態の補完。既存プレイヤーは「今持っている物の名前が急に分からなくなる」混乱を
   // 防ぐため、現在の所持品を識別済みとして移行する。
   if(S.identified===undefined){
