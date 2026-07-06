@@ -7,6 +7,7 @@ let S={screen:'arc',job:'novice',unlockedJobs:['novice'],exp:0,ap:0,gold:0,relic
   dex:{items:{},monsters:{}},   // Phase20: 図鑑基盤(アイテム/モンスターの発見フラグ)
   gridPos:null,                 // PhaseA: スフィア盤のカーソル位置(単語名 or ゲートID)
   spheres:3,sgGates:{},         // UX3: 記憶の球(ノード解放通貨、初期3個) / 起動済みゲート
+  identified:{},                // UX1c: 未識別アイテムの識別状態(itemId:1)。使うと永続的に判明する
   worldPos:null,fromWorld:false,// PhaseW1: オーバーワールド上のプレイヤー座標 / ダンジョン帰還先フラグ
   ws:{},cwrd:[],citem:[],clog:[],filt:'all',off:{x:0,y:0},
   settings:{dpadVisible:true}}; // 操作設定: ダンジョンの十字キー(Dpad)表示ON/OFF。OFFでもタップ移動は常時有効
@@ -47,6 +48,12 @@ function load(){
   // UX3: 記憶の球の補完。既存セーブには初回ボーナス3球を付与(デッドロック回避)
   if(S.spheres===undefined)S.spheres=3;
   if(!S.sgGates)S.sgGates={};
+  // UX1c: 識別状態の補完。既存プレイヤーは「今持っている物の名前が急に分からなくなる」混乱を
+  // 防ぐため、現在の所持品を識別済みとして移行する。
+  if(S.identified===undefined){
+    S.identified={};
+    (S.inventory||[]).forEach(sl=>{S.identified[sl.id]=1});
+  }
   // 装備スロットの補完(旧セーブに鎧スロットが無い場合)
   if(!S.equipment)S.equipment={weapon:null,shield:null,armor:null,accessory:null};
   if(S.equipment.armor===undefined)S.equipment.armor=null;

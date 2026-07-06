@@ -31,13 +31,30 @@ function addItem(id,n=1,meta=null){
   S.inventory.push(newSlot);
   save();return true;
 }
+/* ════ UX1c: 未識別アイテム(シレン式) ════
+   alias付き消費アイテムは、初めて「使う」まで見た目名(緑の草など)で表示される。
+   識別はS.identifiedに永続保存(本作は持ち物がラン間で永続するため、per-runではなくグローバル識別)。
+   全ての名前表示はdispItemName()を通すことで表示漏れを構造的に防ぐ。 */
+function isIdentified(def){return !def||!def.alias||!!(S.identified&&S.identified[def.id])}
+function dispItemName(def){
+  if(!def)return '❔ ???';
+  return isIdentified(def)?`${def.icon} ${def.jp}`:`❓ ${def.alias}`;
+}
+// 使用時に呼ぶ。未識別→識別になった場合trueを返す(正体判明の演出用)
+function identifyItem(def){
+  if(!def||!def.alias)return false;
+  if(!S.identified)S.identified={};
+  if(S.identified[def.id])return false;
+  S.identified[def.id]=1;save();
+  return true;
+}
 // Phase20: 図鑑基盤 — アイテムを初発見した時に登録する(以後は何もしない)
 function registerDexItem(id){
   if(!S.dex)S.dex={items:{},monsters:{}};
   if(S.dex.items[id])return;
   S.dex.items[id]=true;save();
   const def=getItemDef(id);
-  toast(`📘 図鑑に登録: ${def?def.jp:id}`,'g');
+  toast(`📘 図鑑に登録: ${def?dispItemName(def):id}`,'g');
 }
 // Phase20: 図鑑基盤 — モンスターを初撃破した時に登録する(以後は何もしない)
 function registerDexMonster(id){
@@ -74,23 +91,45 @@ function useItem(idx){
       return;
     }
     removeItemAt(idx,1);
+    const revealed=identifyItem(def); // UX1c: 使うと正体が判明する
     const heal=Math.min(def.effect.hp,maxHp-curHp);
     if(inDungeon){
       DM.playerHp=Math.min(DM.playerMaxHp,DM.playerHp+heal);
       closeCharMenu();
       dmLog(`${def.icon} ${def.jp}を使った！ HPが${heal}回復した`);
+      if(revealed)dmLog(`❗ ${def.alias} の正体は ${def.icon}${def.jp} だった！`);
       dmShowFloatDamage(Math.floor(VW/2),Math.floor(VH/2),heal,'heal');
       dmRender();
       dmEnemyTurn(); // 使用も1ターンとして扱う(Phase13)
     }else{
-      toast(`${def.icon} ${def.jp}を使った`,'g');
+      toast(revealed?`❗ ${def.alias}の正体は${def.jp}だった！`:`${def.icon} ${def.jp}を使った`,'g');
       renderInventory();
     }
   } else if(def.type==='consumable'&&def.effect?.fireDmg){
     useFireStone(idx,def); // Phase23: 火炎石
+  } else if(def.type==='consumable'&&def.effect?.satiety){
+    // UX1a: パン — 満腹度を回復する(ダンジョン内でのみ意味を持つ)
+    const inDungeon=!!(DM&&DM.dungeon);
+    if(!inDungeon){ toast('🍞 ダンジョン内で使うと満腹度が回復する','g'); return; }
+    if((DM.satiety??100)>=(DM.maxSatiety??100)){ toast('🍞 お腹はいっぱいだ','g'); return; }
+    removeItemAt(idx,1);
+    DM.satiety=Math.min(DM.maxSatiety??100,(DM.satiety??100)+def.effect.satiety);
+    closeCharMenu();
+    dmLog(`${def.icon} ${def.jp}を食べた！ 満腹度が回復した(${DM.satiety})`);
+    dmRender();
+    dmEnemyTurn(); // 使用も1ターン
   } else if(def.type==='consumable'&&def.effect?.cure){
-    // Phase23: 毒消し草 — 状態異常システムは未実装のため、現状は消費せず案内のみ
-    toast('✨ 今は状態異常にかかっていない(状態異常システムは後日実装予定)','g');
+    // UX1a: 毒消し草 — 毒を治す(本実装)
+    const inDungeon=!!(DM&&DM.dungeon);
+    if(!inDungeon||!(DM.poison>0)){ toast('✨ 今は毒にかかっていない','g'); return; }
+    removeItemAt(idx,1);
+    const revealedC=identifyItem(def);
+    DM.poison=0;
+    closeCharMenu();
+    dmLog(`${def.icon} ${def.jp}を使った！ 毒が治った`);
+    if(revealedC)dmLog(`❗ ${def.alias} の正体は ${def.icon}${def.jp} だった！`);
+    dmRender();
+    dmEnemyTurn(); // 使用も1ターン
   }
 }
 // Phase23: 火炎石 — ダンジョン内で隣接(8方向)する敵1体に固定ダメージを与える。
@@ -110,9 +149,11 @@ function useFireStone(idx,def){
   }
   removeItemAt(idx,1);
   closeCharMenu();
+  const revealedF=identifyItem(def); // UX1c: 使うと正体が判明する
   const dmg=def.effect.fireDmg;
   target.curHp=Math.max(0,target.curHp-dmg);
   dmLog(`🔥 ${def.jp}を使った！ ${target.jp||target.name}に${dmg}ダメージ`);
+  if(revealedF)dmLog(`❗ ${def.alias} の正体は ${def.icon}${def.jp} だった！`);
   dmShowFloatDamage(Math.floor(VW/2)+(target.x-p.x),Math.floor(VH/2)+(target.y-p.y),dmg,'fire');
   if(target.curHp<=0)dmKillEnemy(target);
   dmRender();
@@ -268,7 +309,7 @@ function renderInventory(){
 function invSlotLabel(slot){
   const def=getItemDef(slot.id);if(!def)return '';
   if(def.slot)return equipDisplayName({id:slot.id,rarity:slot.meta?.rarity});
-  return `${def.icon} ${def.jp}`;
+  return dispItemName(def); // UX1c: 未識別なら見た目名で表示
 }
 function renderItemDetail(idx){
   const slot=S.inventory[idx];
@@ -304,15 +345,18 @@ function renderItemDetail(idx){
         <button class="evbtn cm-back" onclick="renderInventory()">戻る</button>
       </div>`;
   }else{
+    // UX1c: ダンジョン内では「投げる」が使える(未識別品を敵に投げて試すシレンの遊び)
+    const canThrow=!!(DM&&DM.dungeon);
     actions=`
       <div class="inv-detail-actions">
         <button class="cact" onclick="useItem(${idx})">使う</button>
+        ${canThrow?`<button class="cact" onclick="dmThrowItem(${idx})">🏹 投げる</button>`:''}
         <button class="cact secondary" onclick="dropItem(${idx})">置く</button>
         <button class="evbtn cm-back" onclick="renderInventory()">戻る</button>
       </div>`;
   }
   document.getElementById('cm-body').innerHTML=`
-    <div class="inv-detail-desc">${def.desc}</div>
+    <div class="inv-detail-desc">${isIdentified(def)?def.desc:'使ってみるまで正体は分からない。敵に投げて試す手もある…'}</div>
     <div class="inv-detail-count">所持数: ×${slot.count}</div>
     ${actions}`;
 }
@@ -480,8 +524,10 @@ function renderDexCategory(cat){
     <div class="inv-cap">${Object.keys(dexMap).length} / ${list.length}</div>
     <div class="inv-list">${list.map(e=>{
       const found=!!dexMap[e.id];
-      const label=found?e.jp:'？？？';
-      const icon=found?e.icon:'❔';
+      // UX1c: 拾ったが未識別のアイテムは見た目名で載る(使うと本名に変わる)
+      const unid=isItem&&found&&e.alias&&!isIdentified(e);
+      const label=found?(unid?e.alias:e.jp):'？？？';
+      const icon=found?(unid?'❓':e.icon):'❔';
       return `<button class="evbtn" onclick="renderDexDetail('${cat}','${e.id}')">${icon} ${label}</button>`;
     }).join('')}</div>
     <button class="evbtn cm-back" onclick="renderDex()">← 戻る</button>`;
@@ -493,9 +539,10 @@ function renderDexDetail(cat,id){
   const e=list.find(x=>x.id===id);
   if(!e){renderDexCategory(cat);return}
   const found=!!dexMap[id];
-  document.getElementById('cm-title').textContent=found?e.jp:'？？？';
+  const unid=isItem&&found&&e.alias&&!isIdentified(e); // UX1c
+  document.getElementById('cm-title').textContent=found?(unid?e.alias:e.jp):'？？？';
   document.getElementById('cm-body').innerHTML=`
-    <div class="inv-detail-desc">${found?e.desc:'まだ発見していない。'}</div>
+    <div class="inv-detail-desc">${found?(unid?'使ってみるまで正体は分からない。':e.desc):'まだ発見していない。'}</div>
     <div class="inv-detail-count">${found?'発見済':'未発見'}</div>
     <button class="evbtn cm-back" onclick="renderDexCategory('${cat}')">戻る</button>`;
 }

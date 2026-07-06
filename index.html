@@ -222,6 +222,10 @@
       <span class="dm-vital-label">HP</span>
       <div class="dm-hpbar2"><div class="dm-hpfill2" id="dm-hpfill2"></div></div>
       <span class="dm-hptxt2" id="dm-hptxt2">20/20</span>
+      <span class="dm-vital-label">🍖</span>
+      <div class="dm-satbar"><div class="dm-satfill" id="dm-satfill"></div></div>
+      <span class="dm-sattxt" id="dm-sattxt">100</span>
+      <span id="dm-poison" title="毒状態" style="display:none">☠</span>
     </div>
     <div class="dm-hud" id="dm-hud">
       <span class="dm-hud-job" id="dmh-job">🌱 Novice</span>
@@ -241,6 +245,7 @@
           <div class="dm-minimap-frame" id="dm-minimap-frame"><div class="dm-minimap" id="dm-minimap"></div></div>
           <div class="dm-grid" id="dm-grid"></div>
           <canvas class="dm-canvas" id="dm-canvas"></canvas>
+          <div class="dm-trap-layer" id="dm-trap-layer"></div>
         </div>
       </div>
       <div class="dm-lower">
@@ -256,14 +261,14 @@
               <button class="dmb dmb-down" data-dmdir="down">▼</button>
               <button class="dmb dmb-downright" data-dmdir="downright">↘</button>
             </div>
-            <!-- SFC風ボタン配置: A(右,大)=決定/攻撃、B(下)=待機、M(左下)=メニュー(大型・常設) -->
+            <!-- シレン風2ボタン配置: A(右上,大)=攻撃/決定・素振りで罠発見、B(左下)=待機/キャンセル・長押しで足踏み回復。
+                 結線はdmBindActionButtons(pointerdown)で行う。☰はヘッダーにあるため撤去(重複解消)。 -->
             <div class="dm-action-pad">
-              <button class="dmb-act dmb-a" id="dm-act" onclick="dma()">A</button>
-              <button class="dmb-act dmb-b" onclick="dmWait()" title="待機(Space)">B</button>
-              <button class="dmb-act dmb-m" onclick="openCharMenu()" title="メニュー(持ち物・装備)">☰</button>
+              <button class="dmb-act dmb-a" id="dm-act">A</button>
+              <button class="dmb-act dmb-b" id="dm-b" title="待機/キャンセル(長押しで足踏み回復)">B</button>
             </div>
           </div>
-          <div class="dm-cdr-label">マップをタップで移動／中央タップで待機／A=決定／B=待機／☰=メニュー</div>
+          <div class="dm-cdr-label">A=攻撃・決定(素振りで罠発見) ／ B=待機・キャンセル(長押しで回復待ち)</div>
         </div>
         <div class="dm-console">
           <div class="dm-log" id="dm-log"></div>

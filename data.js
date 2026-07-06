@@ -115,13 +115,13 @@ function getFloorTier(floor){
 // detectBonus: 索敵距離への加算(例: コウモリは追跡距離+2)
 const ENEMIES=[
   {id:'slime',  name:'Slime',  jp:'スライム', desc:'最も弱いモンスター。',     icon:'🟢', hp:10, atk:3, def:0, rarity:'common',    reward:{gold:5,  aexp:3}},
-  {id:'bat',    name:'Bat',    jp:'コウモリ', desc:'素早く飛び回り、遠くからでも追ってくる。', icon:'🦇', hp:8,  atk:2, def:0, rarity:'uncommon',  reward:{gold:6,  aexp:4}, detectBonus:2},
+  {id:'bat',    name:'Bat',    jp:'コウモリ', desc:'素早く飛び回り、噛みつきは稀に毒を残す。', icon:'🦇', hp:8,  atk:2, def:0, rarity:'uncommon',  reward:{gold:6,  aexp:4}, detectBonus:2, venom:0.2},
   {id:'goblin', name:'Goblin', jp:'ゴブリン', desc:'武器を使う狡猾な小鬼。',     icon:'👺', hp:20, atk:5, def:1, rarity:'rare',      reward:{gold:12, aexp:8}},
   {id:'orc',    name:'Orc',    jp:'オーク',   desc:'力任せに殴りかかる大柄な魔物。', icon:'👹', hp:35, atk:8, def:2, rarity:'legendary', reward:{gold:25, aexp:15}},
   // Phase23: コンテンツ拡張で追加(将来15種類まで拡張可能な構造の一部)
   {id:'wolf',     name:'Wolf',     jp:'ウルフ',   desc:'群れで行動する俊敏な獣。',       icon:'🐺', hp:16, atk:7, def:0, rarity:'uncommon',  reward:{gold:13, aexp:9},  detectBonus:1},
   {id:'skeleton', name:'Skeleton', jp:'スケルトン', desc:'骨の鎧で硬さを増した不死者。',   icon:'💀', hp:22, atk:6, def:2, rarity:'rare',      reward:{gold:14, aexp:10}},
-  {id:'zombie',   name:'Zombie',   jp:'ゾンビ',   desc:'動きは遅いが非常にしぶとい。',     icon:'🧟', hp:30, atk:5, def:1, rarity:'rare',      reward:{gold:14, aexp:11}},
+  {id:'zombie',   name:'Zombie',   jp:'ゾンビ',   desc:'動きは遅いがしぶとく、腐った爪は毒を帯びる。', icon:'🧟', hp:30, atk:5, def:1, rarity:'rare',      reward:{gold:14, aexp:11}, venom:0.35},
   {id:'mage',     name:'Mage',     jp:'メイジ',   desc:'高い攻撃力を持つが防御は薄い魔術師。', icon:'🧙', hp:18, atk:9, def:0, rarity:'legendary', reward:{gold:18, aexp:13}},
 ];
 // Phase21: 階層別の出現率テーブル(B1〜B3は仕様の通り固定)
@@ -153,13 +153,13 @@ function pickEnemyForFloor(floor){
    type は将来のアーカイブ実装(weapon/archive等)を見据えた拡張可能な構造。
    MVPでは consumable(消費アイテム)のみ実装。 */
 const ITEMS=[
-  {id:'herb',      type:'consumable', name:'Herb',       jp:'薬草',   desc:'HPを20回復する',icon:'🌿', effect:{hp:20}},
-  {id:'great_herb',type:'consumable', name:'Great Herb', jp:'上薬草', desc:'HPを50回復する',icon:'🍀', effect:{hp:50}},
-  {id:'bread',     type:'consumable', name:'Bread',      jp:'パン',   desc:'HPを10回復する',icon:'🍞', effect:{hp:10}},
+  {id:'herb',      type:'consumable', name:'Herb',       jp:'薬草',   alias:'緑の草', desc:'HPを20回復する',icon:'🌿', effect:{hp:20}},
+  {id:'great_herb',type:'consumable', name:'Great Herb', jp:'上薬草', alias:'青い草', desc:'HPを50回復する',icon:'🍀', effect:{hp:50}},
+  {id:'bread',     type:'consumable', name:'Bread',      jp:'パン',   desc:'満腹度を50回復する',icon:'🍞', effect:{satiety:50}},
   // Phase23: コンテンツ拡張で追加
-  {id:'big_herb',  type:'consumable', name:'Big Herb',   jp:'大薬草', desc:'HPを100回復する',icon:'🪴', effect:{hp:100}},
-  {id:'antidote',  type:'consumable', name:'Antidote',   jp:'毒消し草', desc:'状態異常を解除する(状態異常システムは未実装)',icon:'🧪', effect:{cure:true}},
-  {id:'fire_stone',type:'consumable', name:'Fire Stone', jp:'火炎石', desc:'隣接する敵に固定ダメージを与える',icon:'🔥', effect:{fireDmg:15}},
+  {id:'big_herb',  type:'consumable', name:'Big Herb',   jp:'大薬草', alias:'金色の草', desc:'HPを100回復する',icon:'🪴', effect:{hp:100}},
+  {id:'antidote',  type:'consumable', name:'Antidote',   jp:'毒消し草', alias:'渋い草', desc:'毒を治す',icon:'🧪', effect:{cure:true}},
+  {id:'fire_stone',type:'consumable', name:'Fire Stone', jp:'火炎石', alias:'赤い石', desc:'隣接する敵に固定ダメージを与える',icon:'🔥', effect:{fireDmg:15}},
 
   /* ════ Phase26: 探索リワード刷新 ════
      装備(weapon/shield/accessory)はmeta.rarityを持ち、EQUIP_RARITY_MULTで実効値が変動。

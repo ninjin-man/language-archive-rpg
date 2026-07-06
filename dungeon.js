@@ -133,7 +133,8 @@ function openDmap(id){
   const d=DD.find(d=>d.id===id);if(!d)return;
   const maxHp=getPlayerMaxHp();
   DM={dungeon:d,floor:1,maxFloor:20,floors:{},steps:0,wordsFound:0,kills:0,log:[],pending:null,
-      playerHp:maxHp,playerMaxHp:maxHp,battleDiscoverBonus:0,anim:{dir:'down',frame:'idle'}};
+      playerHp:maxHp,playerMaxHp:maxHp,battleDiscoverBonus:0,anim:{dir:'down',frame:'idle'},
+      satiety:100,maxSatiety:100,poison:0,hungerWarned:0}; // UX1a: 満腹度(シレン式)と毒状態。ラン毎にリセット
   Renderer.openDungeonView(d.name);
   // Phase7: ダンジョン記録 — 総探索回数をカウント
   S.dungeonRecords=S.dungeonRecords||{maxFloor:0,totalRuns:0,kills:0};
@@ -143,6 +144,7 @@ function openDmap(id){
   loadFloor(1);
   dmRender();
   dmBindGridTap();          // タップ移動ハンドラを保証(初回開始時)
+  dmBindActionButtons();    // UX1b: A/Bボタンのタッチ即応結線(pointerdown)
   dmApplyDpadVisibility();  // 保存済みのDpad表示設定を反映
 }
 function closeDmap(reason){
@@ -393,7 +395,46 @@ function generateFloor(f){
     const nx=px+dx,ny=py+dy;
     if(nx>=0&&nx<GW&&ny>=0&&ny<GH)explored.add(`${nx},${ny}`);
   }
-  DM.floors[f]={grid:g,playerPos:{x:px,y:py},explored,enemies,items,stairsDownPos,stairsUpPos,rooms,restCells};
+  // ════ UX1b: 罠(シレン式) — 床に隠された罠を階数に応じて2〜5個配置 ════
+  // 種類: トゲ(HP減)/毒(UX1aの毒に接続)/腹減り(UX1aの満腹度に接続)。
+  // 罠は踏むと発動して可視化され、以後も残り続ける(シレン準拠)。Aの素振りで正面1マスを事前発見できる。
+  const traps=[];
+  const trapDefs=[
+    {type:'spike', icon:'⚙', name:'トゲの罠'},
+    {type:'poison',icon:'☠', name:'毒の罠'},
+    {type:'hunger',icon:'🍽', name:'腹減りの罠'},
+  ];
+  const trapCount=Math.min(5,2+Math.floor(f/4));
+  let trapGuard=0;
+  while(traps.length<trapCount&&trapGuard++<300){
+    const tx=1+Math.floor(Math.random()*(GW-2)), ty=1+Math.floor(Math.random()*(GH-2));
+    if(g[ty][tx]!==CELL.FLOOR)continue;
+    if(tx===px&&ty===py)continue;
+    if(traps.some(t=>t.x===tx&&t.y===ty))continue;
+    if((items||[]).some(it=>it.x===tx&&it.y===ty))continue;
+    const def=trapDefs[Math.floor(Math.random()*trapDefs.length)];
+    traps.push({x:tx,y:ty,type:def.type,icon:def.icon,name:def.name,revealed:false});
+  }
+  // ════ UX1d: 店(よろず屋) — B2と以降3の倍数階に商人を配置 ════
+  // 開始部屋以外の部屋の床に立つ。接触すると売買画面(ターン非消費=シレン準拠の安全時間)。
+  let merchant=null;
+  if(f===2||(f>2&&f%3===0)){
+    const startRoom=rooms.find(r=>px>=r.x&&px<r.x+r.w&&py>=r.y&&py<r.y+r.h);
+    const cand=rooms.filter(r=>r!==startRoom);
+    if(cand.length){
+      const room=cand[Math.floor(Math.random()*cand.length)];
+      let mGuard=0,mx=-1,my=-1;
+      while(mGuard++<60){
+        const tx=room.x+Math.floor(Math.random()*room.w), ty=room.y+Math.floor(Math.random()*room.h);
+        if(g[ty][tx]!==CELL.FLOOR)continue;
+        if(traps.some(t=>t.x===tx&&t.y===ty))continue;
+        if((items||[]).some(it=>it.x===tx&&it.y===ty))continue;
+        mx=tx;my=ty;break;
+      }
+      if(mx>=0)merchant={x:mx,y:my,stock:shopBuildStock(f)};
+    }
+  }
+  DM.floors[f]={grid:g,playerPos:{x:px,y:py},explored,enemies,items,stairsDownPos,stairsUpPos,rooms,restCells,traps,merchant};
 }
 // アイテム生成テーブル(Phase18の部屋限定生成 + Phase21のバランス調整値 + Phase23の新アイテム + Phase26のリワード刷新)
 // 改修(Phase26): 戻り値を id文字列 から {id,meta} オブジェクトに変更し、装備のレアリティや
@@ -408,7 +449,7 @@ function pickItemDrop(floor,placedTypes){
   if(r<38)return {id:pickOre(floor)};                                            // 12% 鉱石
   if(r<58)return {id:pickEquip(),meta:{rarity:rollEquipRarity(floor)}};          // 20% 装備
   // ── 残り42%: 従来の消費アイテム(薬草中心) ──
-  const table=[{id:'herb',w:70},{id:'bread',w:10}];
+  const table=[{id:'herb',w:70},{id:'bread',w:22}]; // UX1a: 満腹度導入でパンの価値上昇→比重10→22
   if(floor>=5)table.push({id:'great_herb',w:20});
   if(floor>=3)table.push({id:'antidote',w:5});
   if(floor>=8)table.push({id:'fire_stone',w:12});
@@ -592,6 +633,7 @@ function dmRender(){
   const actionBtn={text:'A',bg:'',color:''};
   Renderer.renderGrid(cells,actionBtn);
   dmRenderMinimap();
+  dmRenderTraps(); // UX1b: 発見済み罠のオーバーレイ(レンダラー非依存)
   dmUpdateHud();
 }
 
@@ -635,6 +677,11 @@ function dmUpdateHud(){
     hpLow: hpPct<=25,
     hpLabel: `${Math.max(0,DM.playerHp)}/${DM.playerMaxHp}`,
   });
+  // UX1a: 満腹度・毒はdm-vitalsのDOMを直接更新(両レンダラー非依存)
+  const sat=(DM.satiety!==undefined)?DM.satiety:100;
+  const sf=document.getElementById('dm-satfill'); if(sf){sf.style.width=sat+'%';sf.classList.toggle('low',sat<=20)}
+  const stx=document.getElementById('dm-sattxt'); if(stx)stx.textContent=sat;
+  const poi=document.getElementById('dm-poison'); if(poi)poi.style.display=(DM.poison>0)?'':'none';
 }
 
 function dmLog(msg){
@@ -657,6 +704,11 @@ function dmv(dir){
     if(g[p.y][nx]===CELL.WALL||g[ny][p.x]===CELL.WALL)return;
   }
   DM.anim.dir=DM_SPRITE_DIR_MAP[dir]||dir; // Phase24: 移動・攻撃どちらでも向きを更新
+  // UX1d: 商人に接触すると店が開く(移動せず、ターンも消費しない=シレン準拠の安全時間)
+  if(fl.merchant&&fl.merchant.x===nx&&fl.merchant.y===ny){
+    openShop();
+    return;
+  }
   // 接触攻撃(MVPローグライク化): 移動先に生存中の敵がいれば、移動せず即攻撃してターンを消費する
   const enemyHere=(fl.enemies||[]).find(e=>e.curHp>0&&e.x===nx&&e.y===ny);
   if(enemyHere){
@@ -674,6 +726,12 @@ function dmv(dir){
   for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){
     const ex=nx+dx,ey=ny+dy;
     if(ex>=0&&ex<GW&&ey>=0&&ey<GH)explored.add(`${ex},${ey}`);
+  }
+  // UX1b: 罠 — 移動確定後に踏み判定。罠は発動後も残り続ける(シレン準拠)ため、見えていても踏めば発動する
+  const trapHere=(fl.traps||[]).find(t=>t.x===nx&&t.y===ny);
+  if(trapHere){
+    dmSpringTrap(trapHere);
+    if(DM.playerHp<=0){dmRender();dmPlayerDown();return}
   }
   // Phase16/18/19: 床のアイテムを自動取得(プレイヤーが踏むと自動取得)
   if((fl.items||[]).some(it=>it.x===nx&&it.y===ny)){
@@ -707,6 +765,257 @@ function dmDiagonalBlocked(fl,x,y,dx,dy){
   const wall=(ax,ay)=>(ax<0||ax>=GW||ay<0||ay>=GH||fl.grid[ay][ax]===CELL.WALL);
   return wall(x+dx,y)||wall(x,y+dy); // どちらかの直交セルが壁なら斜めは通さない
 }
+/* ════ UX1d: 店(よろず屋)システム ════
+   価格はSHOP_PRICESに一元化(買値。売値は半額)。未識別品も定価で並ぶため、
+   「渋い草が50G…毒消しの値段だ」というシレンの"値段識別"が自然発生する。
+   UIは既存のキャラメニューオーバーレイ(char-menu-ov/cm-title/cm-body)を流用。 */
+const SHOP_PRICES={
+  herb:30, great_herb:80, big_herb:180, bread:60, antidote:50, fire_stone:100,
+  ore_iron:40, ore_crystal:90, ore_gold:120,
+  eq_sword:220, eq_axe:260, eq_spear:220, eq_shield:180, eq_armor:240, eq_ring:200, eq_amulet:200,
+  escape_gem:300,
+};
+function shopPriceOf(id,meta){
+  const base=SHOP_PRICES[id]; if(base===undefined)return null;
+  // 装備はレアリティで価格スケール(実効値と同じEQUIP_RARITY_MULTを流用)
+  if(meta&&meta.rarity&&typeof EQUIP_RARITY_MULT!=='undefined'&&EQUIP_RARITY_MULT[meta.rarity]){
+    return Math.round(base*EQUIP_RARITY_MULT[meta.rarity]);
+  }
+  return base;
+}
+function shopSellPriceOf(id,meta){
+  const p=shopPriceOf(id,meta);
+  return p===null?null:Math.floor(p/2);
+}
+// 階層に応じた在庫3〜4品: 食料1(満腹度経済の生命線)+回復/道具+深層では装備or宝玉
+function shopBuildStock(f){
+  const stock=[];
+  stock.push({id:'bread',price:shopPriceOf('bread')});
+  const utilPool=f>=5?['great_herb','antidote','fire_stone','big_herb']:['herb','antidote','fire_stone'];
+  const u1=utilPool[Math.floor(Math.random()*utilPool.length)];
+  stock.push({id:u1,price:shopPriceOf(u1)});
+  const u2pool=utilPool.filter(x=>x!==u1);
+  if(u2pool.length&&Math.random()<0.7){
+    const u2=u2pool[Math.floor(Math.random()*u2pool.length)];
+    stock.push({id:u2,price:shopPriceOf(u2)});
+  }
+  if(f>=4&&Math.random()<0.6){
+    const eq=pickEquip(); const meta={rarity:rollEquipRarity(f)};
+    stock.push({id:eq,price:shopPriceOf(eq,meta),meta});
+  }else if(f>=5&&Math.random()<0.5){
+    stock.push({id:'escape_gem',price:shopPriceOf('escape_gem')});
+  }
+  return stock;
+}
+function shopDispName(entry){
+  if(entry.id==='escape_gem')return '◇ 脱出の宝玉';
+  const def=getItemDef(entry.id); if(!def)return entry.id;
+  if(def.slot&&entry.meta)return equipDisplayName({id:entry.id,rarity:entry.meta.rarity});
+  return (typeof dispItemName==='function')?dispItemName(def):`${def.icon} ${def.jp}`;
+}
+function openShop(){
+  const fl=DM.floors[DM.floor]; if(!fl||!fl.merchant)return;
+  document.getElementById('char-menu-ov').classList.add('show');
+  renderShop();
+}
+function renderShop(){
+  const fl=DM.floors[DM.floor]; if(!fl||!fl.merchant)return;
+  document.getElementById('cm-title').textContent='🏪 よろず屋';
+  const rows=fl.merchant.stock.map((e,i)=>{
+    if(e.sold)return `<button class="evbtn" disabled>（売り切れ）</button>`;
+    const afford=(S.gold||0)>=e.price;
+    return `<button class="evbtn" ${afford?'':'disabled'} onclick="buyShopItem(${i})">${shopDispName(e)}　${e.price}G${afford?'':'（G不足）'}</button>`;
+  }).join('');
+  document.getElementById('cm-body').innerHTML=`
+    <div class="inv-cap">所持金 🪙 ${S.gold||0} G</div>
+    <div class="inv-list">${rows}</div>
+    <div class="inv-detail-actions">
+      <button class="cact secondary" onclick="renderShopSell()">売る（定価の半額）</button>
+      <button class="evbtn cm-back" onclick="closeCharMenu()">店を出る</button>
+    </div>`;
+}
+function buyShopItem(i){
+  const fl=DM.floors[DM.floor]; if(!fl||!fl.merchant)return;
+  const e=fl.merchant.stock[i];
+  if(!e||e.sold)return;
+  if((S.gold||0)<e.price){toast('🪙 お金が足りない','r');return}
+  if(e.id==='escape_gem'){
+    S.escapeGems=(S.escapeGems||0)+1;
+  }else{
+    if(!addItem(e.id,1,e.meta||null)){toast('🎒 持ち物がいっぱいだ','r');return}
+  }
+  S.gold-=e.price; e.sold=true; save();
+  dmLog(`🏪 ${shopDispName(e)} を ${e.price}G で買った`);
+  dmUpdateHud();
+  renderShop();
+}
+function renderShopSell(){
+  document.getElementById('cm-title').textContent='🏪 買い取り';
+  const rows=(S.inventory||[]).map((slot,idx)=>{
+    const def=getItemDef(slot.id); if(!def)return '';
+    const p=shopSellPriceOf(slot.id,slot.meta);
+    if(p===null)return ''; // 値段のつかない物(欠片等)は買い取らない
+    const label=(typeof invSlotLabel==='function')?invSlotLabel(slot):def.jp;
+    return `<button class="evbtn" onclick="sellShopItem(${idx})">${label} ×${slot.count}　→ ${p}G</button>`;
+  }).filter(Boolean).join('');
+  document.getElementById('cm-body').innerHTML=`
+    <div class="inv-cap">所持金 🪙 ${S.gold||0} G</div>
+    <div class="inv-list">${rows||'<div class="inv-empty">売れる物がない</div>'}</div>
+    <div class="inv-detail-actions">
+      <button class="evbtn cm-back" onclick="renderShop()">← 店頭に戻る</button>
+    </div>`;
+}
+function sellShopItem(idx){
+  const slot=S.inventory[idx]; if(!slot)return;
+  const p=shopSellPriceOf(slot.id,slot.meta); if(p===null)return;
+  const def=getItemDef(slot.id);
+  removeItemAt(idx,1);
+  S.gold=(S.gold||0)+p; save();
+  dmLog(`🏪 ${def?def.jp:slot.id} を ${p}G で売った`);
+  dmUpdateHud();
+  renderShopSell();
+}
+
+/* ════ UX1c: 投擲(シレン式) ════
+   向いている方向へ直線に投げる(最大10マス)。最初の敵に命中してダメージ(火炎石は15、他は3)。
+   外れたら壁の手前の床に落ち、既存の床アイテムシステム(fl.items)で拾い直せる。投擲も1ターン。 */
+function dmThrowItem(idx){
+  if(!(DM&&DM.dungeon)){if(typeof toast==='function')toast('🏹 ダンジョン内でのみ投げられる','g');return}
+  const slot=S.inventory[idx];
+  const def=slot&&getItemDef(slot.id);
+  if(!slot||!def)return;
+  const fl=DM.floors[DM.floor]; if(!fl)return;
+  const p=fl.playerPos;
+  const facing=(DM.anim&&DM.anim.dir)||'down';
+  const d=DM_DIR_DELTA[facing]||[0,1];
+  const meta=slot.meta;
+  removeItemAt(idx,1);
+  if(typeof closeCharMenu==='function')closeCharMenu();
+  if(typeof dmPlayAttackAnim==='function')dmPlayAttackAnim(facing);
+  let x=p.x,y=p.y,hit=null;
+  for(let i=0;i<10;i++){
+    const nx=x+d[0],ny=y+d[1];
+    if(nx<0||ny<0||nx>=GW||ny>=GH)break;
+    if(fl.grid[ny][nx]===CELL.WALL)break;
+    x=nx;y=ny;
+    const en=(fl.enemies||[]).find(e=>e.curHp>0&&e.x===x&&e.y===y);
+    if(en){hit=en;break}
+  }
+  if(hit){
+    const dmg=def.effect&&def.effect.fireDmg?def.effect.fireDmg:3;
+    hit.curHp=Math.max(0,hit.curHp-dmg);
+    dmLog(`🏹 ${dispItemName(def)}を投げつけた！ ${hit.name}に${dmg}ダメージ`);
+    dmShowFloatDamage(Math.floor(VW/2)+(hit.x-p.x),Math.floor(VH/2)+(hit.y-p.y),dmg,'enemy');
+    if(hit.curHp<=0)dmKillEnemy(hit); // 既存の撃破フロー(報酬/図鑑)に合流
+  }else if(x!==p.x||y!==p.y){
+    fl.items=fl.items||[];
+    fl.items.push(meta?{id:slot.id,x,y,meta}:{id:slot.id,x,y});
+    dmLog(`🏹 ${dispItemName(def)}を投げた。床に落ちた`);
+  }else{
+    dmLog(`🏹 ${dispItemName(def)}を投げたが、壁に当たって砕け散った…`);
+  }
+  dmRender();
+  dmEnemyTurn();
+}
+
+/* ════ UX1b: 罠システム(シレン式) ════ */
+// 罠を発動する。効果適用+可視化+ログ。死亡判定は呼び出し側(dmv)で行う。
+function dmSpringTrap(t){
+  t.revealed=true;
+  if(t.type==='spike'){
+    const dmg=3+Math.floor(DM.floor/2);
+    DM.playerHp=Math.max(0,DM.playerHp-dmg);
+    dmLog(`⚙ トゲの罠を踏んだ！ ${dmg}ダメージ`);
+    dmShowFloatDamage(Math.floor(VW/2),Math.floor(VH/2),dmg,'player');
+  }else if(t.type==='poison'){
+    if(DM.poison<=0){DM.poison=8;dmLog('☠ 毒の罠を踏んだ！ 毒におかされた(8ターン)')}
+    else dmLog('☠ 毒の罠を踏んだが、すでに毒におかされている');
+  }else if(t.type==='hunger'){
+    DM.satiety=Math.max(0,(DM.satiety??100)-20);
+    dmLog(`🍽 腹減りの罠を踏んだ！ 満腹度が20減った(${DM.satiety})`);
+  }
+}
+// 発見済みの罠と商人をDOMオーバーレイに描画(レンダラー非依存: getCellMetricsで座標変換)
+function dmRenderTraps(){
+  const layer=document.getElementById('dm-trap-layer'); if(!layer)return;
+  const fl=DM.floors[DM.floor];
+  if(!fl){layer.innerHTML='';return}
+  const p=fl.playerPos, ox=p.x-Math.floor(VW/2), oy=p.y-Math.floor(VH/2);
+  const m=Renderer.getCellMetrics();
+  let html='';
+  (fl.traps||[]).forEach(t=>{
+    if(!t.revealed)return;
+    const vx=t.x-ox, vy=t.y-oy;
+    if(vx<0||vx>=VW||vy<0||vy>=VH)return;
+    if(vx===Math.floor(VW/2)&&vy===Math.floor(VH/2))return; // プレイヤーの足元はスプライトを優先
+    const x=m.padLeft+vx*(m.cw+m.gap), y=m.padTop+vy*(m.cw+m.gap);
+    html+=`<span class="dm-trap" style="left:${x}px;top:${y}px;width:${m.cw}px;height:${m.cw}px;font-size:${Math.floor(m.cw*0.5)}px">${t.icon}</span>`;
+  });
+  // UX1d: 商人(探索済みセルにいる時だけ見える)
+  if(fl.merchant&&fl.explored.has(`${fl.merchant.x},${fl.merchant.y}`)){
+    const vx=fl.merchant.x-ox, vy=fl.merchant.y-oy;
+    if(vx>=0&&vx<VW&&vy>=0&&vy<VH){
+      const x=m.padLeft+vx*(m.cw+m.gap), y=m.padTop+vy*(m.cw+m.gap);
+      html+=`<span class="dm-trap" style="left:${x}px;top:${y}px;width:${m.cw}px;height:${m.cw}px;font-size:${Math.floor(m.cw*0.68)}px;color:#ffd870;text-shadow:0 0 8px rgba(255,216,112,.8)">🏪</span>`;
+    }
+  }
+  layer.innerHTML=html;
+}
+
+/* ════ UX1b: B ボタン(待機/キャンセル/長押しで足踏み回復) ════ */
+function dmb(){
+  if(!dmIsOverlayOpen())return;
+  // シレンのB=キャンセル: 階段の確認中は「やめる」として働く
+  if(DM.pending==='stairs_down'||DM.pending==='stairs_up'){dmCancelStairs();return}
+  if(DM.pending)return; // その他の選択待ち中は誤爆させない
+  dmWait();
+}
+// 足踏み回復(B長押し): HP全快/毒/空腹/敵接近/選択待ちで自動停止する
+function dmRestStop(msg){
+  if(DM._restTimer){clearInterval(DM._restTimer);DM._restTimer=null;if(msg)dmLog(msg)}
+  if(DM._restHold){clearTimeout(DM._restHold);DM._restHold=null}
+}
+function dmRestTick(){
+  if(!dmIsOverlayOpen()||DM.pending){dmRestStop();return}
+  if(DM.playerHp>=DM.playerMaxHp){dmRestStop('✨ HPが全快した');return}
+  if(DM.poison>0){dmRestStop('☠ 毒のままでは休めない');return}
+  if((DM.satiety??100)<=20){dmRestStop('🍖 空腹で休んでいられない');return}
+  const fl=DM.floors[DM.floor], p=fl&&fl.playerPos;
+  if(fl&&p&&(fl.enemies||[]).some(e=>e.curHp>0&&Math.max(Math.abs(e.x-p.x),Math.abs(e.y-p.y))<=DM_DETECT_RANGE)){
+    dmRestStop('👀 敵の気配で目が覚めた！');return
+  }
+  dmWait();
+}
+// A/Bボタンのタッチ即応結線(pointerdown+preventDefault)。onclickの遅延・二重発火を排除する
+function dmBindActionButtons(){
+  const a=document.getElementById('dm-act'), b=document.getElementById('dm-b');
+  if(a&&!a._bound){
+    a._bound=true;
+    a.addEventListener('pointerdown',e=>{e.preventDefault();dma()});
+  }
+  if(b&&!b._bound){
+    b._bound=true;
+    b.addEventListener('pointerdown',e=>{
+      e.preventDefault();
+      b._long=false;
+      DM._restHold=setTimeout(()=>{
+        b._long=true;DM._restHold=null;
+        dmLog('💤 足踏みして回復する…(指を離すと止まる)');
+        DM._restTimer=setInterval(dmRestTick,150);
+      },450);
+    });
+    const up=()=>{
+      if(DM._restHold){clearTimeout(DM._restHold);DM._restHold=null}
+      if(DM._restTimer){clearInterval(DM._restTimer);DM._restTimer=null}
+      else if(!b._long){dmb()}
+      b._long=false;
+    };
+    b.addEventListener('pointerup',up);
+    b.addEventListener('pointercancel',up);
+    b.addEventListener('pointerleave',up);
+  }
+}
+
 function dma(){
   if(DM.pending){dmResolvePending();return} // 宝箱/イベント/階段の確定を優先
   if(!dmIsOverlayOpen())return;
@@ -724,7 +1033,20 @@ function dma(){
     if(en){target=en;tdir=dir;break}
   }
   if(target){dmContactAttack(target,tdir)}
-  else{dmLog('🗡 空振り…(周囲に敵はいない)')}
+  else{
+    // UX1b: 素振り — ターンを消費し、向いている方向1マスの隠された罠を発見できる(シレン文法)
+    const fd=DM_DIR_DELTA[facing]||[0,1];
+    const fx=p.x+fd[0], fy=p.y+fd[1];
+    const hidden=(fl.traps||[]).find(t=>t.x===fx&&t.y===fy&&!t.revealed);
+    if(typeof dmPlayAttackAnim==='function')dmPlayAttackAnim(facing);
+    if(hidden){
+      hidden.revealed=true;
+      dmLog(`🗡 素振りで ${hidden.icon} ${hidden.name} を発見した！`);
+    }else{
+      dmLog('🗡 素振りをした');
+    }
+    dmEnemyTurn(); // 素振りも1ターン(シレン準拠)
+  }
 }
 
 /* ════ 接触攻撃・敵ターン制・敵AI (MVPローグライク化アップデート) ════
@@ -794,7 +1116,7 @@ function dmKillEnemy(enemy){
   drops.forEach(id=>{
     if(fl)dmDropOnFloor(fl,id,enemy.x,enemy.y);
     const def=getItemDef(id);
-    if(def)dropMsg+=` ${def.icon}${def.jp}がドロップした！`;
+    if(def)dropMsg+=` ${dispItemName(def)}がドロップした！`;
   });
   save();updateHdr();
   dmLog(`🎉 ${enemy.name}を倒した！ 💰+${goldGain} Gold / 📈+${aexpGain} Archive EXP${dropMsg}`);
@@ -853,7 +1175,7 @@ function dmTryPickupItems(x,y){
         dmLog(`🔮 アーカイブの欠片を手に入れた！(解読で単語を発見できる)`);
         showRareFind();
       }else{
-        dmLog(`${def.icon} ${def.jp}を手に入れた！`);
+        dmLog(`${dispItemName(def)}を手に入れた！`);
         if(it.id==='great_herb')showRareFind(); // Phase22: レアアイテム演出
       }
     }else{
@@ -917,6 +1239,11 @@ function dmEnemyTurn(){
         DM.playerHp=Math.max(0,DM.playerHp-dmg);
         dmLog(`💢 ${e.name}の攻撃！ ${dmg}ダメージを受けた`);
         dmShowFloatDamage(Math.floor(VW/2),Math.floor(VH/2),dmg,'player');
+        // UX1a: 毒付与(venom持ちの敵のみ、確率。重ねがけはしない)
+        if(e.venom&&DM.poison<=0&&Math.random()<e.venom){
+          DM.poison=8;
+          dmLog(`☠ ${e.name}の毒をうけた！(8ターン)`);
+        }
         e.state='aggro';
         return;
       }
@@ -926,9 +1253,29 @@ function dmEnemyTurn(){
       else if(Math.random()<0.4)dmMoveEnemyRandom(e,fl);
     });
   }
-  // ターン経過処理(Phase15): 自然回復判定。状態異常判定は未実装(将来拡張用のフック)
+  // ターン経過処理(Phase15/UX1a): 毒 → 満腹度 → 自然回復 の順に解決する
   DM.turnCount=(DM.turnCount||0)+1;
-  if(DM.turnCount%10===0)dmNaturalRegen();
+  // UX1a: 毒 — 毎ターンHP-1。切れたらログで知らせる
+  if(DM.poison>0){
+    DM.poison--;
+    DM.playerHp=Math.max(0,DM.playerHp-1);
+    dmShowFloatDamage(Math.floor(VW/2),Math.floor(VH/2),1,'player');
+    if(DM.poison<=0)dmLog('✨ 毒が消えた');
+  }
+  if(DM.turnCount%10===0){
+    // UX1a: 満腹度 — 10ターンで1減る。0になると飢えでHPが削られ、自然回復も止まる(シレン式)
+    if(DM.satiety>0){
+      DM.satiety--;
+      if(DM.satiety===30&&DM.hungerWarned<1){DM.hungerWarned=1;dmLog('🍖 お腹が空いてきた…')}
+      else if(DM.satiety===10&&DM.hungerWarned<2){DM.hungerWarned=2;dmLog('🍖 空腹で力が出ない…！')}
+      else if(DM.satiety===0){dmLog('☠ 飢えている！ HPが削られていく…')}
+    }else{
+      DM.playerHp=Math.max(0,DM.playerHp-2);
+      dmShowFloatDamage(Math.floor(VW/2),Math.floor(VH/2),2,'player');
+    }
+    // 自然回復は「満腹度が残っていて」「毒でない」ときだけ働く
+    if(DM.satiety>0&&DM.poison<=0)dmNaturalRegen();
+  }
   dmRender();
   if(DM.playerHp<=0)dmPlayerDown();
 }
@@ -1123,6 +1470,8 @@ function dmHandleKeydown(e){
     dmWait();
     return;
   }
+  if(e.key==='Enter'){ e.preventDefault(); dma(); return; }   // UX1b: A=攻撃/決定
+  if(e.key==='Escape'){ e.preventDefault(); dmb(); return; }  // UX1b: B=待機/キャンセル
   const dir=DM_KEY_DIR[e.key];
   if(!dir)return;
   e.preventDefault();
