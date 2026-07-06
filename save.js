@@ -8,6 +8,7 @@ let S={screen:'arc',job:'novice',unlockedJobs:['novice'],exp:0,ap:0,gold:0,relic
   gridPos:null,                 // PhaseA: スフィア盤のカーソル位置(単語名 or ゲートID)
   spheres:3,sgGates:{},         // UX3: 記憶の球(ノード解放通貨、初期3個) / 起動済みゲート
   identified:{},                // UX1c: 未識別アイテムの識別状態(itemId:1)。使うと永続的に判明する
+  craftTried:[],                // UX2: 調合で失敗した組み合わせの記録(上限200)。✗表示で再浪費を防ぐ
   worldPos:null,fromWorld:false,// PhaseW1: オーバーワールド上のプレイヤー座標 / ダンジョン帰還先フラグ
   ws:{},cwrd:[],citem:[],clog:[],filt:'all',off:{x:0,y:0},
   settings:{dpadVisible:true}}; // 操作設定: ダンジョンの十字キー(Dpad)表示ON/OFF。OFFでもタップ移動は常時有効
@@ -54,6 +55,8 @@ function load(){
     S.identified={};
     (S.inventory||[]).forEach(sl=>{S.identified[sl.id]=1});
   }
+  // UX2: 調合試行記録の補完
+  if(!S.craftTried)S.craftTried=[];
   // 装備スロットの補完(旧セーブに鎧スロットが無い場合)
   if(!S.equipment)S.equipment={weapon:null,shield:null,armor:null,accessory:null};
   if(S.equipment.armor===undefined)S.equipment.armor=null;
