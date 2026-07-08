@@ -74,6 +74,10 @@ function wldBuildMap(mapId, forceStart){
   if(def.id==='overworld' && typeof DD!=='undefined'){
     var placed={}; G.spots.forEach(function(s){ if(s.type==='dungeon')placed[s.id]=1; });
     DD.forEach(function(d){ if(!placed[d.id]&&typeof console!=='undefined')console.warn('[world] 未配置のダンジョン: '+d.id); });
+    // ── エンカウント戦闘の試作: 歩ける地形に敵シンボルを数体配置 ──
+    // 既存の地点(ダンジョン/町/NPC)と重ならない床マスに置く。type:'battle'として
+    // wldEnterSpot が beStart(enemyId) を呼ぶ。敵IDは data.js の ENEMIES から。
+    wldPlaceBattleSpots(G);
   }
   // 開始位置の決定: forceStart > セーブ(同一マップのみ) > def.start > 走査
   var start=null;
@@ -87,6 +91,37 @@ function wldBuildMap(mapId, forceStart){
   if(!start){ var f=wldFindWalkable(); start={x:f.x,y:f.y}; }
   G.px=start.x; G.py=start.y; G.ppx=G.px; G.ppy=G.py;
 }
+
+/* ════ エンカウント戦闘(試作): 敵シンボルの配置 ════
+   歩ける床マスから、既存地点と開始位置を避けてランダムに数体配置する。
+   踏むと wldEnterSpot 経由で beStart(enemyId) が呼ばれる。
+   敵IDは data.js の ENEMIES から浅い層向けに選ぶ(slime/bat/goblin/wolf)。 */
+function wldPlaceBattleSpots(G){
+  if(typeof ENEMIES==='undefined'||!ENEMIES.length)return;
+  var pool=['slime','bat','goblin','wolf'].filter(function(id){
+    return ENEMIES.some(function(e){return e.id===id});
+  });
+  if(!pool.length)pool=[ENEMIES[0].id];
+  // 既存地点・開始マスを占有集合に
+  var occ={};
+  G.spots.forEach(function(s){ occ[s.gx+','+s.gy]=1; });
+  occ[G.px+','+G.py]=1;
+  // 歩ける床マスを収集
+  var cells=[];
+  for(var y=0;y<G.GH;y++)for(var x=0;x<G.GW;x++){
+    if(wldWalkable(x,y)&&!occ[x+','+y])cells.push({x:x,y:y});
+  }
+  // シャッフルして先頭から5体配置
+  for(var i=cells.length-1;i>0;i--){ var j=Math.floor(Math.random()*(i+1)); var t=cells[i];cells[i]=cells[j];cells[j]=t; }
+  var n=Math.min(5,cells.length);
+  var icons={slime:'🟢',bat:'🦇',goblin:'👺',wolf:'🐺'};
+  for(var k=0;k<n;k++){
+    var c=cells[k];
+    var eid=pool[Math.floor(Math.random()*pool.length)];
+    G.spots.push({ gx:c.x, gy:c.y, type:'battle', id:eid, name:eid, icon:icons[eid]||'⚔' });
+  }
+}
+
 function wldBuildFallbackMap(){
   var G=WORLD; G.GW=12; G.GH=12; G.grid=[]; G.spots=[]; G._npcBlock={}; G.curMapId='overworld';
   for(var y=0;y<12;y++){ G.grid[y]=[]; for(var x=0;x<12;x++){ G.grid[y][x]=(x===0||y===0||x===11||y===11)?WLD_T.WATER:WLD_T.GRASS; } }
@@ -189,6 +224,18 @@ function wldDraw(){
       ctx.fillText(s.icon||'🧍',px,py);
       return;
     }
+    if(s.type==='battle'){
+      // エンカウント敵シンボル: 赤い脈動円 + 敵アイコン(試作)
+      var bpulse=0.5+0.5*Math.sin(tnow*3.2+s.gx);
+      ctx.globalAlpha=0.28+bpulse*0.42;
+      ctx.fillStyle='#e05c5c';
+      ctx.beginPath();ctx.arc(px,py,ts*0.5,0,Math.PI*2);ctx.fill();
+      ctx.globalAlpha=1;
+      ctx.font=Math.max(11,Math.floor(ts*0.64))+'px sans-serif';
+      ctx.textAlign='center';ctx.textBaseline='middle';
+      ctx.fillText(s.icon||'⚔',px,py+1);
+      return;
+    }
     if(s.type==='exit'){
       ctx.fillStyle='rgba(20,24,40,0.55)';
       ctx.fillRect(sx(s.gx)+ts*0.15,sy(s.gy)+ts*0.15,ts*0.7,ts*0.7);
@@ -263,6 +310,17 @@ function wldArrive(){
   if(G.held)wldMove(G.held);
 }
 function wldEnterSpot(spot,fromX,fromY){
+  if(spot.type==='battle'){
+    // エンカウント戦闘(試作): 敵シンボルに接触 → 戦闘へ。
+    // 手前マスへ戻して(敵の上に立ち止まらせない)、シンボルは消費して除去する。
+    var bback=(fromX!==undefined&&wldWalkable(fromX,fromY))?{x:fromX,y:fromY}:{x:spot.gx,y:spot.gy};
+    WORLD.px=bback.x; WORLD.py=bback.y; WORLD.ppx=WORLD.px; WORLD.ppy=WORLD.py;
+    WORLD.spots=WORLD.spots.filter(function(s){return s!==spot;}); // 撃破前でも1回で消費(試作の簡易仕様)
+    WORLD_hide();
+    if(typeof beStart==='function')beStart(spot.id);
+    else if(typeof toast==='function')toast('戦闘システム未読込','r');
+    return;
+  }
   if(spot.type==='dungeon'){
     // 復帰時に入口上で再侵入しないよう、手前マスを保存位置にする(DQ/FF標準)。
     if(typeof S!=='undefined'){

@@ -324,6 +324,38 @@
   </div>
 </div>
 
+<!-- BATTLE ENCOUNTER (試作: エンカウント式ターン制戦闘) -->
+<div id="be-ov">
+  <div id="be-enemy">
+    <div id="be-enemy-icon">👾</div>
+    <div id="be-enemy-name">敵</div>
+    <div class="be-hpwrap">
+      <div class="be-hpbar"><div class="be-hpfill" id="be-enemy-hpfill"></div></div>
+      <div class="be-hptxt" id="be-enemy-hptxt">0/0</div>
+    </div>
+  </div>
+
+  <div id="be-stage">
+    <div id="be-flash"></div>
+  </div>
+
+  <div id="be-player">
+    <div class="be-player-label">あなた</div>
+    <div class="be-hpwrap">
+      <div class="be-hpbar"><div class="be-hpfill" id="be-player-hpfill"></div></div>
+      <div class="be-hptxt" id="be-player-hptxt">0/0</div>
+    </div>
+  </div>
+
+  <div id="be-log"></div>
+  <div id="be-moves"></div>
+
+  <div id="be-result">
+    <div class="be-result-title" id="be-result-title">RESULT</div>
+    <button class="be-result-btn" onclick="beEnd()">フィールドへ戻る</button>
+  </div>
+</div>
+
 <div id="toasts"></div>
 
 <script src="data.js"></script>
@@ -342,6 +374,7 @@
 <script src="ui.js"></script>
 <script src="worldmap.js"></script>
 <script src="world-data.js"></script>
+<script src="battle-encounter.js"></script>
 <script src="world.js"></script>
 
 <!-- ダブルタップによるSafariのページズームを無効化(touch-action:manipulation)。
