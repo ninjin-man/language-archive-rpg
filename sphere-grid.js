@@ -516,7 +516,10 @@ function sgFtrHtml(word) {
     const cost = sgMoveCost(word);
     html += `<button class="btn" ${reach && !blocked && sgSlv() >= cost ? '' : 'disabled'} onclick="sgMoveTo('${word}')">👣 移動 🔷${cost}（残${sgSlv()}）</button>`;
   }
-  return html || '<button class="btn" disabled>ここにいる</button>';
+  if (!html) html = '<button class="btn" disabled>ここにいる</button>';
+  // 盤へ戻る導線を常設(モバイルでバックドロップが押しにくく詰む問題の対策)
+  html += `<button class="btn btn-d" onclick="sgCloseDetail()" title="閉じる" style="flex:0 0 auto;width:42px">×</button>`;
+  return html;
 }
 function sgShowDetail(word) {
   // UX3: ゲートノード専用パネル
