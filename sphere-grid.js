@@ -109,10 +109,10 @@ function sgBuild() {
       const gx = Math.round((SG.pos[best.x].x + SG.pos[best.y].x) / 2);
       const gy = Math.round((SG.pos[best.x].y + SG.pos[best.y].y) / 2);
       const SG_STATS = [
-        { k: 'hp',    v: 5, icon: '❤', lbl: 'HP +5' },
-        { k: 'atk',   v: 1, icon: '⚔', lbl: 'ATK +1' },
-        { k: 'def',   v: 1, icon: '🛡', lbl: 'DEF +1' },
-        { k: 'regen', v: 1, icon: '✚', lbl: 'REGEN +1' },
+        { k: 'hp',    v: 10, icon: '❤', lbl: 'HP +10' },   // UX#5: 報酬強化(歩く価値の底上げ)
+        { k: 'atk',   v: 2,  icon: '⚔', lbl: 'ATK +2' },
+        { k: 'def',   v: 2,  icon: '🛡', lbl: 'DEF +2' },
+        { k: 'regen', v: 2,  icon: '✚', lbl: 'REGEN +2' },
       ];
       const stat = SG_STATS[SG.bridges.length % SG_STATS.length];
       SG.pos[gid] = { x: gx, y: gy };
@@ -188,6 +188,7 @@ function sgActivateNode(word) {
     save();
     discover(word);
     sgActFx(word);
+    sgCheckClusterComplete(WM[word] && WM[word].archive); // UX#5: 完遂ボーナス判定
   }
   sgDraw(); sgUpdateHdr(); sgShowDetail(word);
 }
@@ -219,6 +220,37 @@ function sgActFx(id) {
   c.setAttribute('class', 'sg-actfx');
   g.appendChild(c);
   setTimeout(() => { if (c.parentNode) c.parentNode.removeChild(c); }, 750);
+}
+
+/* ── UX#5: クラスタ完遂ボーナス(盤の目的地) ──
+   カテゴリの全単語を解放すると「心得」称号+大ステータス+🔮3を獲得(1回限り)。
+   FF10の「あの先にアルテマがある」欲望を、レイアウト変更なしで作る:
+   クラスタラベルに「あとN語で【心得】」を予告表示し、遠くの目的地を可視化する。 */
+function sgClusterBonusFor(cat) {
+  const cats = Object.keys(SG.clusters).sort();
+  const i = Math.max(0, cats.indexOf(cat));
+  const table = [
+    { k: 'atk', v: 2, lbl: 'ATK+2' },
+    { k: 'hp', v: 12, lbl: 'HP+12' },
+    { k: 'def', v: 2, lbl: 'DEF+2' },
+    { k: 'regen', v: 2, lbl: 'REGEN+2' },
+  ];
+  return table[i % table.length];
+}
+function sgCheckClusterComplete(cat) {
+  if (!cat || !SG.clusters[cat]) return;
+  if (S.clusterDone && S.clusterDone[cat]) return;
+  if (!SG.clusters[cat].words.every(w => gst(w) !== 'unknown')) return;
+  if (!S.clusterDone) S.clusterDone = {};
+  S.clusterDone[cat] = 1;
+  const b = sgClusterBonusFor(cat);
+  if (!S.stats) S.stats = {};
+  S.stats[b.k] = (S.stats[b.k] || 0) + b.v;
+  S.spheres = (S.spheres || 0) + 3;
+  save();
+  const nm = (typeof CJP !== 'undefined' && CJP[cat]) || cat;
+  if (typeof toast === 'function') toast(`🏆 ${nm}の心得を会得！ ${b.lbl}・🔮+3`, 'g');
+  if (typeof updateHdr === 'function') updateHdr();
 }
 
 /* ── viewBox helpers ── */
@@ -343,6 +375,14 @@ function sgDraw() {
     const name = anyKnown ? ((typeof CJP !== 'undefined' && CJP[cat]) || cat) : '？？？';
     const col = anyKnown ? SG.catColor[cat] : '#4a5478';
     labels += `<text x="${cl.x}" y="${cl.y - cl.r - 14}" text-anchor="middle" font-size="17" font-weight="800" fill="${col}" opacity="${anyKnown ? 0.85 : 0.6}"${anyKnown ? '' : ' letter-spacing="3"'}>${anyKnown ? (CICON[cat] || '') + ' ' + name : name}</text>`;
+    // UX#5: 目的地の予告 — 「あとN語で心得」を常時表示し、遠くの報酬へ歩く欲望を作る
+    if (anyKnown) {
+      const remain = cl.words.filter(w => gst(w) === 'unknown').length;
+      const done = S.clusterDone && S.clusterDone[cat];
+      const b = sgClusterBonusFor(cat);
+      const sub = done ? `✓ 心得 会得済(${b.lbl})` : `あと${remain}語で 心得【${b.lbl}】🔮+3`;
+      labels += `<text x="${cl.x}" y="${cl.y - cl.r + 2}" text-anchor="middle" font-size="10" font-weight="600" fill="${done ? '#7fc87f' : '#c8a84b'}" opacity="0.85">${sub}</text>`;
+    }
   });
 
   // cursor marker (FFX white pointer)
