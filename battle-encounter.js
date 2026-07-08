@@ -188,9 +188,10 @@ function beEnemyTurn() {
   BE.playerHp = Math.max(0, BE.playerHp - dmg);
   beLog(`💢 ${e.jp || e.name}の攻撃！ ${dmg} ダメージを受けた`);
   beFloat(dmg, 'player');
-  beRender();
-  if (BE.playerHp <= 0) { setTimeout(() => beLose(), 500); return; }
+  if (BE.playerHp <= 0) { beRender(); setTimeout(() => beLose(), 500); return; }
+  // busyを先に解除してから再描画する。逆順にすると技ボタンがdisabledのまま固まる。
   BE.busy = false;
+  beRender();
 }
 
 /* ════ 勝敗 ════ */
