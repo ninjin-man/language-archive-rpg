@@ -304,7 +304,13 @@ function wldArrive(){
   var fromX=G.mfx, fromY=G.mfy;   // 進入元(手前マス)
   G.px=G.mtx;G.py=G.mty;G.ppx=G.px;G.ppy=G.py;G.moving=false;
   var hit=G.spots.find(function(s){return s.gx===G.px&&s.gy===G.py;});
-  if(hit){ wldEnterSpot(hit,fromX,fromY); return; }
+  if(hit){
+    // 重要: wldArriveはwldLoopのtry-catch(例外握りつぶし)の中から呼ばれる。
+    // 戦闘・ダンジョン起動中の例外がここで無言で消えると「何も起きない」バグになるため、
+    // spot処理はsetTimeout(0)でループの外に逃がし、例外を必ず表面化させる。
+    setTimeout(function(){ wldEnterSpot(hit,fromX,fromY); },0);
+    return;
+  }
   wldSavePos(G.px,G.py);
   // 押しっぱなし中は即座に次のタイルへ(スタッター除去: DQ/FFの滑らかな連続歩行)
   if(G.held)wldMove(G.held);
@@ -319,10 +325,22 @@ function wldEnterSpot(spot,fromX,fromY){
     WORLD_hide();
     // 戦闘モードの切替(比較用): 'atb'=アクティブタイムバトル / 'turn'=ターン制
     // BATTLE_MODE はグローバル。コンソールや設定から書き換えて比較できる。
-    var mode=(typeof BATTLE_MODE!=='undefined')?BATTLE_MODE:'atb';
-    if(mode==='atb' && typeof abStart==='function') abStart(spot.id);
-    else if(typeof beStart==='function') beStart(spot.id);
-    else if(typeof toast==='function') toast('戦闘システム未読込','r');
+    // 起動失敗は必ず可視化する(無言で失敗すると原因調査が不可能になるため)。
+    try{
+      var mode=(typeof BATTLE_MODE!=='undefined')?BATTLE_MODE:'atb';
+      if(mode==='atb' && typeof abStart==='function'){ abStart(spot.id); }
+      else if(typeof beStart==='function'){ beStart(spot.id); }
+      else{
+        var msg='戦闘ファイル未読込(battle-atb.js / battle-encounter.js がサーバーにあるか確認)';
+        if(typeof toast==='function')toast(msg,'r'); else alert(msg);
+        WORLD_show();  // 戦闘に入れないのでワールドへ戻す
+      }
+    }catch(err){
+      var em='戦闘起動エラー: '+(err&&err.message?err.message:err);
+      if(typeof console!=='undefined')console.error(em, err);
+      if(typeof toast==='function')toast(em,'r'); else alert(em);
+      WORLD_show();
+    }
     return;
   }
   if(spot.type==='dungeon'){

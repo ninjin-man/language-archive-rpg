@@ -435,3 +435,6 @@ function abFlashEvolve(from, to, wasUnknown) {
   abLog(`⚡ ${from} を使い込み、${to} を閃いた！${wasUnknown?'（新発見）':''}`);
   setTimeout(() => fl.classList.remove('show'), wasUnknown ? 1900 : 1500);
 }
+
+/* 読込確認(実機デバッグ用): コンソールに出れば battle-atb.js は読めている */
+if (typeof console !== 'undefined') console.log('[battle-atb] loaded. BATTLE_MODE=' + BATTLE_MODE);

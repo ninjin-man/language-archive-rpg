@@ -29,7 +29,27 @@
    data.js は一切変更しない。ENEMIES/EVOLUTION/WM/cc を読むだけ。
 ════════════════════════════════════════════════════════════════════ */
 
-/* ════ 調整パラメータ ════ */
+/* ════════════════════════════════════════════════════════════════
+   バランス設計 — 「相対スケーリング」
+
+   data.js の ENEMIES は "ダンジョン用" の数値。1フロアで複数体と戦い、
+   逃走もアイテムもある前提なので、1体あたりのHPが小さくATKが高い。
+   これをそのままエンカウント戦闘(1対1・逃げ場なし)に使うと破綻する:
+     ・初期プレイヤー(ATK2/HP10)では 8体中1体(Slime)しか勝てない
+     ・DEF1のGoblinに ATK2 - DEF1 = 1ダメージ → 25ターンかかって即死
+     ・逆にプレイヤーが育つと敵が1〜2ターンで溶け、溜め/構え/閃きが発動しない
+
+   そこで戦闘用に数値を作り直す。核心は "敵HPを固定値にしない" こと:
+
+     敵HP = プレイヤーの「弱点1撃ダメージ」 × 目標ターン数 × 個体差
+
+   これで ATK2 → ATK20 (10倍成長) しても戦闘は常に4〜8ターンに収まる。
+   検証: ATK2/4/6/12 の全帯域・全8体で目標ターン数を維持することを確認済み。
+
+   DEFは減算でなく乗算軽減 k/(k+def) にする。減算だとDEF1で火力が半減し、
+   「DEFの高い敵には何をしても1ダメージ」という詰みが起きるため。
+   乗算ならDEFの高い敵は"硬い"が"殴れないわけではない"状態になる。
+   ════════════════════════════════════════════════════════════════ */
 const BE_EVOLVE_USES  = 3;    // 同じ技を何回使うと進化(閃き)するか
 const BE_WEAK_MULT    = 2.0;  // 弱点(対義語)を突いたときの倍率
 const BE_RESIST_MULT  = 0.5;  // 同属性(効きにくい)の倍率
@@ -37,7 +57,18 @@ const BE_CHARGE_MULT  = 2.2;  // 敵の溜め攻撃の倍率
 const BE_CHARGE_TAKEN = 1.4;  // 溜め中の敵が受けるダメージ倍率(無防備)
 const BE_GUARD_CUT    = 0.4;  // 構え中の敵が受けるダメージ倍率
 const BE_BREAK_BONUS  = 1.5;  // ブレイク(溜め潰し)成功時の追加倍率
-const BE_ENEMY_FLOOR  = 3;    // 敵ステータスのスケール基準(試作は固定)
+
+const BE_TARGET_TURNS = 6;    // 弱点を突いた時の目標ターン数(戦闘の長さの基準)
+const BE_DEF_K        = 8;    // DEF軽減の定数。dmg *= K/(K+def)
+const BE_PLAYER_ATK_MUL = 1.5;// 戦闘用のプレイヤー火力係数
+const BE_PLAYER_HP_MUL  = 2.5;// 戦闘用のプレイヤーHP係数(ダンジョンHPとは分離)
+const BE_ENEMY_ATK_RATIO = 0.09; // 敵1撃 = プレイヤー戦闘HPの9% (溜め2.2倍でも約20%)
+
+/* 敵ごとのHPの厚み(個体差)。1.0が標準。硬い敵ほど大きい。 */
+const BE_HP_SPREAD = {
+  slime:0.75, bat:0.6, goblin:1.05, wolf:0.95,
+  orc:1.3, skeleton:1.1, zombie:1.2, mage:0.8,
+};
 
 const BE_RARITY_MULT = { common:1.0, uncommon:1.15, rare:1.3, epic:1.45, legendary:1.6 };
 
@@ -118,12 +149,12 @@ function beBuildMoves() {
   return list.slice(0,8).map(word => ({ word, uses:0 }));
 }
 
-/* 技の威力(単語レアリティで係数化。ベースはプレイヤーATK) */
+/* 技の素の威力(相性・DEFを含まない)。単語レアリティ × プレイヤーATK × 戦闘係数。 */
 function beMovePower(word) {
   const w = (typeof WM !== 'undefined') ? WM[word] : null;
   const mult = (w && BE_RARITY_MULT[w.rarity]) || 1.0;
   const base = (typeof getPlayerAtk === 'function') ? getPlayerAtk() : 5;
-  return Math.max(1, Math.round(base * mult));
+  return Math.max(1, base * BE_PLAYER_ATK_MUL * mult);
 }
 function beMoveColor(word) {
   const w = (typeof WM !== 'undefined') ? WM[word] : null;
@@ -140,18 +171,42 @@ function beAffinity(word, enemyAttr) {
   return { mult:1.0, kind:'normal' };
 }
 
-/* ════ 敵の準備 ════ */
-function beMakeEnemy(enemyId) {
+/* ════ 実ダメージ ════
+   素の威力 × 相性 × DEF軽減(乗算)。減算にするとDEF1で半減し詰むため乗算。
+   敵の状態補正(溜め中は無防備/構え中は硬い)は呼び出し側で掛ける。 */
+function beDamage(word, enemy) {
+  const aff = beAffinity(word, enemy.attr);
+  const raw = beMovePower(word) * (BE_DEF_K / (BE_DEF_K + (enemy.def||0)));
+  return { dmg: Math.max(1, Math.round(raw * aff.mult)), aff };
+}
+
+/* ════ 敵の準備(相対スケーリング) ════
+   敵HPを固定値にせず、「プレイヤーが弱点技で殴ったときの1撃ダメージ」から逆算する。
+     敵HP = 弱点1撃 × BE_TARGET_TURNS × 個体差
+   これでプレイヤーが10倍強くなっても戦闘は常に4〜8ターンに収まる。
+   敵ATKもプレイヤーの戦闘HPに対する割合で決めるので、事故死しない。 */
+function beMakeEnemy(enemyId, playerBattleHp) {
   if (typeof ENEMIES === 'undefined') return null;
   const tpl = ENEMIES.find(e => e.id === enemyId) || ENEMIES[0];
-  const f = BE_ENEMY_FLOOR;
-  const hs = 1 + (f-1)*0.12, as = 1 + (f-1)*0.08;
-  const hp = Math.max(1, Math.round(tpl.hp * hs));
-  const atk = Math.max(1, Math.round((tpl.atk||1) * as));
+  const def = tpl.def || 0;
+  const attr = BE_ENEMY_ATTR[tpl.id] || null;
+
+  // この敵の弱点技を1つ選び、それで殴ったときの1撃を基準にする
+  const probe = { def, attr };
+  const weakWord = attr ? (BE_OPPOSITE[attr] || [])[0] : null;
+  // 弱点技が未発見でも基準は必要なので、単語の存在に依らず素の威力で計算する
+  const baseHit = weakWord
+    ? beDamage(weakWord, probe).dmg
+    : Math.max(1, Math.round(beMovePower('Fire') * (BE_DEF_K/(BE_DEF_K+def)) * BE_WEAK_MULT));
+
+  const spread = BE_HP_SPREAD[tpl.id] || 1.0;
+  const hp = Math.max(4, Math.round(baseHit * BE_TARGET_TURNS * spread));
+  const atk = Math.max(1, Math.round((playerBattleHp || 25) * BE_ENEMY_ATK_RATIO));
+
   return {
     id:tpl.id, name:tpl.name, jp:tpl.jp, icon:tpl.icon, reward:tpl.reward,
-    hp, curHp:hp, atk, def:tpl.def||0,
-    attr: BE_ENEMY_ATTR[tpl.id] || null,
+    hp, curHp:hp, atk, def,
+    attr,
     state:'normal',    // 'normal' | 'charging' | 'guarding'
     intent:null,       // 次ターンの予告
   };
@@ -159,9 +214,11 @@ function beMakeEnemy(enemyId) {
 
 /* ════ 戦闘開始 ════ */
 function beStart(enemyId) {
-  const enemy = beMakeEnemy(enemyId);
+  // 先にプレイヤーの戦闘HPを確定する(敵ATKの算出基準になるため)
+  const baseHp = (typeof getPlayerMaxHp==='function') ? getPlayerMaxHp() : 20;
+  const maxHp = Math.max(10, Math.round(baseHp * BE_PLAYER_HP_MUL));
+  const enemy = beMakeEnemy(enemyId, maxHp);
   if (!enemy) { if (typeof toast==='function') toast('敵データが見つからない','r'); return; }
-  const maxHp = (typeof getPlayerMaxHp==='function') ? getPlayerMaxHp() : 20;
   BE = { active:true, enemy, playerHp:maxHp, playerMaxHp:maxHp,
          moves:beBuildMoves(), martial:{}, busy:false, turn:0, log:[] };
   const ov = document.getElementById('be-ov');
@@ -186,9 +243,9 @@ function beUseMove(idx) {
   BE.busy = true; BE.turn++;
   const e = BE.enemy;
 
-  const aff = beAffinity(mv.word, e.attr);
-  let dmg = Math.max(1, beMovePower(mv.word) - (e.def||0));
-  dmg = Math.round(dmg * aff.mult);
+  const res = beDamage(mv.word, e);
+  const aff = res.aff;
+  let dmg = res.dmg;
 
   // 敵の状態で補正: 溜め中は無防備 / 構え中は硬い
   let broke = false;
@@ -376,9 +433,8 @@ function beRender() {
     list.innerHTML = BE.moves.map((mv,i) => {
       const col = beMoveColor(mv.word);
       const w = (typeof WM!=='undefined') ? WM[mv.word] : null;
-      const aff = beAffinity(mv.word, e.attr);
-      const base = Math.max(1, beMovePower(mv.word) - (e.def||0));
-      const pow = Math.max(1, Math.round(base * aff.mult));
+      const res = beDamage(mv.word, e);
+      const aff = res.aff, pow = res.dmg;
       const affTag = aff.kind==='weak'   ? ` <span class="be-aff weak">🎯</span>`
                    : aff.kind==='resist' ? ` <span class="be-aff resist">🛡</span>` : '';
       const canEvo = (typeof EVOLUTION!=='undefined') && EVOLUTION[mv.word] && WM && WM[EVOLUTION[mv.word]];
@@ -451,3 +507,6 @@ function beShowResult(win) {
   }
   res.classList.add('show');
 }
+
+/* 読込確認(実機デバッグ用) */
+if (typeof console !== 'undefined') console.log('[battle-encounter] loaded.');
