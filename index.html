@@ -357,6 +357,48 @@
   </div>
 </div>
 
+<!-- BATTLE ATB (試作: アクティブタイムバトル / SO風の"待ちのない流れ") -->
+<div id="ab-ov">
+  <div id="ab-topbar">
+    <button class="ab-mode-btn" id="ab-mode" onclick="abToggleWait()">▶ ACTIVE</button>
+  </div>
+
+  <div id="be-enemy">
+    <div id="ab-enemy-icon">👾</div>
+    <div id="ab-enemy-name">敵</div>
+    <div class="be-intent normal" id="ab-enemy-state"></div>
+    <div class="be-hpwrap">
+      <div class="be-hpbar"><div class="be-hpfill" id="ab-enemy-hpfill"></div></div>
+      <div class="be-hptxt" id="ab-enemy-hptxt">0/0</div>
+      <div class="ab-gauge"><div class="ab-gauge-fill enemy" id="ab-enemy-gauge"></div></div>
+    </div>
+  </div>
+
+  <div id="ab-stage">
+    <div id="ab-flash"></div>
+  </div>
+
+  <div id="be-player">
+    <div class="be-player-label">あなた</div>
+    <div class="be-hpwrap">
+      <div class="be-hpbar"><div class="be-hpfill" id="ab-player-hpfill"></div></div>
+      <div class="be-hptxt" id="ab-player-hptxt">0/0</div>
+      <div class="ab-gauge-row">
+        <span class="ab-gauge-label" id="ab-player-gauge-label">ATB</span>
+        <div class="ab-gauge"><div class="ab-gauge-fill player" id="ab-player-gauge"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="ab-log"></div>
+  <div id="ab-moves"></div>
+
+  <div id="ab-result">
+    <div class="be-result-title" id="ab-result-title">RESULT</div>
+    <button class="be-result-btn" onclick="abEnd()">フィールドへ戻る</button>
+  </div>
+</div>
+
 <div id="toasts"></div>
 
 <script src="data.js"></script>
@@ -376,6 +418,7 @@
 <script src="worldmap.js"></script>
 <script src="world-data.js"></script>
 <script src="battle-encounter.js"></script>
+<script src="battle-atb.js"></script>
 <script src="world.js"></script>
 
 <!-- ダブルタップによるSafariのページズームを無効化(touch-action:manipulation)。

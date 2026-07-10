@@ -317,8 +317,12 @@ function wldEnterSpot(spot,fromX,fromY){
     WORLD.px=bback.x; WORLD.py=bback.y; WORLD.ppx=WORLD.px; WORLD.ppy=WORLD.py;
     WORLD.spots=WORLD.spots.filter(function(s){return s!==spot;}); // 撃破前でも1回で消費(試作の簡易仕様)
     WORLD_hide();
-    if(typeof beStart==='function')beStart(spot.id);
-    else if(typeof toast==='function')toast('戦闘システム未読込','r');
+    // 戦闘モードの切替(比較用): 'atb'=アクティブタイムバトル / 'turn'=ターン制
+    // BATTLE_MODE はグローバル。コンソールや設定から書き換えて比較できる。
+    var mode=(typeof BATTLE_MODE!=='undefined')?BATTLE_MODE:'atb';
+    if(mode==='atb' && typeof abStart==='function') abStart(spot.id);
+    else if(typeof beStart==='function') beStart(spot.id);
+    else if(typeof toast==='function') toast('戦闘システム未読込','r');
     return;
   }
   if(spot.type==='dungeon'){
